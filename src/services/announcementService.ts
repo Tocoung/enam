@@ -9,14 +9,14 @@ import { CORPORATE_ANNOUNCEMENTS } from '../data/announcementData';
 /**
  * Announcement Service & Feed Adapter.
  *
- * Separates data ingestion and filtering logic from React components, allowing
- * seamless future transition to a backend proxy or live SSE/WebSocket streaming feed.
+ * Provides typed filtering, deterministic sorting, and aggregate provenance metrics.
  */
 
 export const DEFAULT_ANNOUNCEMENT_FILTERS: AnnouncementFilterState = {
   searchQuery: '',
   category: 'ALL',
   priority: 'ALL',
+  provenance: 'ALL',
   sortBy: 'NEWEST_FIRST',
 };
 
@@ -53,10 +53,15 @@ export function filterAndSortAnnouncements(
         return false;
       }
 
+      // 4. Provenance Filter (if specified)
+      if (filters.provenance && filters.provenance !== 'ALL' && item.provenance !== filters.provenance) {
+        return false;
+      }
+
       return true;
     })
     .sort((a, b) => {
-      // 4. Sorting logic
+      // 5. Sorting logic
       if (filters.sortBy === 'NEWEST_FIRST') {
         return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
       }
@@ -88,15 +93,21 @@ export function computeAnnouncementMetrics(
     REGULATORY_LEGAL: 0,
   };
 
-  let verifiedCount = 0;
+  let primaryDocCount = 0;
+  let archiveLinkCount = 0;
+  let secondarySourceCount = 0;
   let demoCount = 0;
   let highPriorityCount = 0;
 
   for (const ann of announcements) {
-    if (ann.isDemo) {
+    if (ann.provenance === 'VERIFIED_PRIMARY_DOCUMENT') {
+      primaryDocCount++;
+    } else if (ann.provenance === 'OFFICIAL_ARCHIVE_LINK') {
+      archiveLinkCount++;
+    } else if (ann.provenance === 'SECONDARY_SOURCE') {
+      secondarySourceCount++;
+    } else if (ann.provenance === 'DEMO_DATA') {
       demoCount++;
-    } else {
-      verifiedCount++;
     }
 
     if (ann.priority === 'HIGH') {
@@ -110,7 +121,9 @@ export function computeAnnouncementMetrics(
 
   return {
     totalCount: announcements.length,
-    verifiedCount,
+    primaryDocCount,
+    archiveLinkCount,
+    secondarySourceCount,
     demoCount,
     highPriorityCount,
     categoryCounts,
@@ -128,8 +141,7 @@ export async function fetchCorporateAnnouncements(
   filteredCount: number;
   metrics: AnnouncementFeedMetrics;
 }> {
-  // Simulated asynchronous dispatch to mirror production network interface
-  await new Promise((resolve) => setTimeout(resolve, 80));
+  await new Promise((resolve) => setTimeout(resolve, 60));
 
   const all = [...CORPORATE_ANNOUNCEMENTS];
   const metrics = computeAnnouncementMetrics(all);
@@ -140,18 +152,5 @@ export async function fetchCorporateAnnouncements(
     allCount: all.length,
     filteredCount: filtered.length,
     metrics,
-  };
-}
-
-/**
- * Helper to generate official exchange lookup URLs for arbitrary tickers.
- */
-export function getExchangeAnnouncementUrls(ticker: string) {
-  const clean = ticker.trim().toUpperCase();
-  return {
-    nseUrl: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(clean)}`,
-    bseSearchUrl: `https://www.bseindia.com/markets/equity/EQReports/StockPrcDyn.aspx?scripcode=${encodeURIComponent(
-      clean
-    )}`,
   };
 }

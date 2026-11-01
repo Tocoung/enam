@@ -3,12 +3,11 @@ import {
   CorporateAnnouncement,
   AnnouncementCategoryFilter,
   AnnouncementPriorityFilter,
+  AnnouncementProvenanceFilter,
   AnnouncementSortOption,
   AnnouncementCategory,
 } from '../types/announcements';
-import {
-  CORPORATE_ANNOUNCEMENTS,
-} from '../data/announcementData';
+import { CORPORATE_ANNOUNCEMENTS } from '../data/announcementData';
 import {
   filterAndSortAnnouncements,
   computeAnnouncementMetrics,
@@ -27,6 +26,7 @@ import {
   Sparkles,
   Newspaper,
   CheckCircle2,
+  FileText,
 } from './icons';
 
 interface AnnouncementFeedProps {
@@ -46,6 +46,7 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnnouncementCategoryFilter>('ALL');
   const [selectedPriority, setSelectedPriority] = useState<AnnouncementPriorityFilter>('ALL');
+  const [selectedProvenance, setSelectedProvenance] = useState<AnnouncementProvenanceFilter>('ALL');
   const [sortBy, setSortBy] = useState<AnnouncementSortOption>('NEWEST_FIRST');
 
   // Compute metrics across entire dataset
@@ -59,14 +60,16 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
       searchQuery,
       category: selectedCategory,
       priority: selectedPriority,
+      provenance: selectedProvenance,
       sortBy,
     });
-  }, [searchQuery, selectedCategory, selectedPriority, sortBy]);
+  }, [searchQuery, selectedCategory, selectedPriority, selectedProvenance, sortBy]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('ALL');
     setSelectedPriority('ALL');
+    setSelectedProvenance('ALL');
     setSortBy('NEWEST_FIRST');
   };
 
@@ -74,6 +77,7 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
     searchQuery.trim() !== '' ||
     selectedCategory !== 'ALL' ||
     selectedPriority !== 'ALL' ||
+    selectedProvenance !== 'ALL' ||
     sortBy !== 'NEWEST_FIRST';
 
   return (
@@ -100,14 +104,34 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
         </div>
 
         {/* Aggregate Counters */}
-        <div className="flex flex-wrap items-center gap-2 text-xs font-mono shrink-0">
-          <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] sm:text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>{metrics.verifiedCount} Verified Filings</span>
+        <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono shrink-0">
+          <div
+            title="Exact official statutory filing or company release specifically linked"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]"
+          >
+            <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+            <span>{metrics.primaryDocCount} Primary Docs</span>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] sm:text-xs">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>{metrics.demoCount} DEMO Entries</span>
+          <div
+            title="Official exchange/issuer archive repository (individual filing PDF not resolved)"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px]"
+          >
+            <FileText className="w-3 h-3 text-sky-400 shrink-0" />
+            <span>{metrics.archiveLinkCount} Archive Links</span>
+          </div>
+          <div
+            title="Event details supported by reputable financial media citing regulatory disclosures"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]"
+          >
+            <Newspaper className="w-3 h-3 text-purple-400 shrink-0" />
+            <span>{metrics.secondarySourceCount} Secondary</span>
+          </div>
+          <div
+            title="Illustrative synthetic entry for interface evaluation"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]"
+          >
+            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>{metrics.demoCount} DEMO</span>
           </div>
         </div>
       </div>
@@ -116,25 +140,25 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
       <div className="p-3.5 sm:p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs space-y-2.5">
         <div className="flex items-center gap-2 text-slate-200 font-semibold uppercase tracking-wider text-[11px]">
           <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>Filing Integrity & Priority Classification Policy</span>
+          <span>Filing Integrity & Editorial Assessment Policy</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-400 text-[11px] leading-relaxed">
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 font-medium text-slate-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-              <span>Verified Filings vs. Illustrative DEMO Entries</span>
+              <span>4-Tier Provenance Classification</span>
             </div>
             <p>
-              Entries tagged <span className="font-semibold text-emerald-300">VERIFIED EXCHANGE FILING</span> correspond to authentic statutory disclosures submitted under SEBI (LODR) Regulations 2015 with direct primary links. Entries tagged <span className="font-semibold text-amber-300">DEMO ANNOUNCEMENT</span> are synthetic market illustrations simulating broader sector activity and do not represent actual exchange filings.
+              FINN strictly distinguishes <span className="font-semibold text-emerald-300">VERIFIED PRIMARY DOCUMENT</span> (exact official filing linked directly), <span className="font-semibold text-sky-300">OFFICIAL ARCHIVE LINK</span> (official exchange archive; specific document not individually resolved), <span className="font-semibold text-purple-300">SECONDARY SOURCE</span> (financial press reporting citing disclosures), and <span className="font-semibold text-amber-300">DEMO ANNOUNCEMENT</span> (synthetic illustrations for interface evaluation).
             </p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 font-medium text-slate-300">
               <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
-              <span>Objective Materiality Rubric</span>
+              <span>FINN Editorial Assessment (Materiality)</span>
             </div>
             <p>
-              <span className="font-semibold text-rose-300">HIGH MATERIALITY</span> is reserved for statutory price-sensitive triggers: quarterly financial statements, large capital raises (&gt;₹5,000 Cr), bonus equity issuances, material litigation resolutions, and regulatory inspection outcomes.
+              Priority ratings (<span className="text-rose-300 font-semibold">HIGH</span>, <span className="text-indigo-300 font-semibold">MEDIUM</span>, <span className="text-slate-300 font-semibold">ROUTINE</span>) represent <span className="italic text-slate-300">FINN&apos;s editorial assessment</span> based on disclosed scale, capital dilution, and statutory requirements—not an objective market price forecast or official exchange classification.
             </p>
           </div>
         </div>
@@ -329,6 +353,36 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   const isHigh = announcement.priority === 'HIGH';
   const isMedium = announcement.priority === 'MEDIUM';
 
+  // Determine button label according to Section 7 guidelines
+  const getSourceLinkLabel = () => {
+    switch (announcement.provenance) {
+      case 'VERIFIED_PRIMARY_DOCUMENT':
+        return 'Open filing ↗';
+      case 'OFFICIAL_ARCHIVE_LINK':
+        return 'Open exchange archive ↗';
+      case 'SECONDARY_SOURCE':
+        return 'Read secondary coverage ↗';
+      case 'DEMO_DATA':
+      default:
+        return 'Inspect exchange portal ↗';
+    }
+  };
+
+  // Determine button styling based on provenance
+  const getSourceLinkStyle = () => {
+    switch (announcement.provenance) {
+      case 'VERIFIED_PRIMARY_DOCUMENT':
+        return 'bg-emerald-950/40 hover:bg-emerald-950/70 text-emerald-300 border-emerald-500/30 hover:text-white';
+      case 'OFFICIAL_ARCHIVE_LINK':
+        return 'bg-sky-950/40 hover:bg-sky-950/70 text-sky-300 border-sky-500/30 hover:text-white';
+      case 'SECONDARY_SOURCE':
+        return 'bg-purple-950/40 hover:bg-purple-950/70 text-purple-300 border-purple-500/30 hover:text-white';
+      case 'DEMO_DATA':
+      default:
+        return 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:text-white';
+    }
+  };
+
   return (
     <article className="p-4 sm:p-5 rounded-xl bg-[#0d1424] border border-slate-800/80 hover:border-slate-700 transition space-y-3.5 relative">
       {/* Top Meta Bar */}
@@ -353,15 +407,28 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
         {/* Right: Badges & Date */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Provenance Badge */}
-          {announcement.isDemo ? (
+          {announcement.provenance === 'VERIFIED_PRIMARY_DOCUMENT' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              VERIFIED PRIMARY DOCUMENT
+            </span>
+          )}
+          {announcement.provenance === 'OFFICIAL_ARCHIVE_LINK' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-sky-500/10 text-sky-300 border border-sky-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+              OFFICIAL ARCHIVE LINK
+            </span>
+          )}
+          {announcement.provenance === 'SECONDARY_SOURCE' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+              SECONDARY SOURCE
+            </span>
+          )}
+          {announcement.provenance === 'DEMO_DATA' && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
               DEMO ANNOUNCEMENT
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              VERIFIED FILING
             </span>
           )}
 
@@ -383,7 +450,7 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
             {isHigh ? 'HIGH MATERIALITY' : isMedium ? 'MEDIUM' : 'ROUTINE'}
           </span>
 
-          {/* Timestamp */}
+          {/* Timestamp / Date */}
           <div className="flex items-center gap-1 text-slate-400 text-[11px] font-mono">
             <Calendar className="w-3 h-3 text-slate-500" />
             <span>{announcement.displayDate}</span>
@@ -405,7 +472,7 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
       {announcement.keyHighlights && announcement.keyHighlights.length > 0 && (
         <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800/80 space-y-1.5">
           <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
-            Filing Highlights & Quantitative Terms:
+            Disclosed Highlights & Terms:
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-300">
             {announcement.keyHighlights.map((hl, idx) => (
@@ -418,16 +485,16 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
         </div>
       )}
 
-      {/* Bottom Context: Category, Priority Rationale, and Action Links */}
+      {/* Bottom Context: Category, Editorial Assessment, and Action Links */}
       <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-        {/* Left: Category & Priority Rationale */}
+        {/* Left: Category & Editorial Assessment Rationale */}
         <div className="flex flex-wrap items-center gap-2 text-slate-400">
           <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] text-slate-300 font-medium">
             {CATEGORY_LABELS[announcement.category]}
           </span>
           <span className="text-slate-600 hidden sm:inline">•</span>
           <span className="text-[11px] text-slate-400 italic">
-            Rationale: {announcement.priorityRationale}
+            FINN Editorial Assessment: {announcement.priorityRationale}
           </span>
         </div>
 
@@ -445,25 +512,17 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
             </button>
           )}
 
-          {/* Source Link */}
+          {/* Source Link with Strict Target Wording */}
           {announcement.source && (
             <a
               href={announcement.source.url}
               target="_blank"
               rel="noopener noreferrer"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition ${
-                announcement.isDemo
-                  ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:text-white'
-                  : 'bg-emerald-950/40 hover:bg-emerald-950/70 text-emerald-300 border-emerald-500/30 hover:text-white'
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition ${getSourceLinkStyle()}`}
               title={announcement.source.title}
             >
               <ExternalLink className="w-3 h-3" />
-              <span>
-                {announcement.isDemo
-                  ? 'Inspect Exchange Portal ↗'
-                  : 'View Verified Filing ↗'}
-              </span>
+              <span>{getSourceLinkLabel()}</span>
             </a>
           )}
         </div>

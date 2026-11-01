@@ -1,7 +1,7 @@
 /**
  * Type definitions for Corporate Announcement Intelligence Feed.
- * Strictly separates authentic exchange-filed announcements from
- * illustrative DEMO simulations and external portal lookups.
+ * Strictly separates authentic exact primary documents from broad exchange archives,
+ * secondary press sources, and illustrative DEMO simulations.
  */
 
 export type AnnouncementCategory =
@@ -14,24 +14,24 @@ export type AnnouncementCategory =
 export type AnnouncementPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type AnnouncementProvenance =
-  | 'VERIFIED_FILING'
-  | 'DEMO_DATA'
-  | 'EXTERNAL_PORTAL';
+  | 'VERIFIED_PRIMARY_DOCUMENT'
+  | 'OFFICIAL_ARCHIVE_LINK'
+  | 'SECONDARY_SOURCE'
+  | 'DEMO_DATA';
 
 export type AnnouncementSourceType =
-  | 'BSE_FILING'
-  | 'NSE_DISCLOSURE'
-  | 'COMPANY_PORTAL'
-  | 'SIMULATED_FEED';
+  | 'PRIMARY_FILING'
+  | 'EXCHANGE_ARCHIVE'
+  | 'SECONDARY_MEDIA'
+  | 'SIMULATED_PORTAL';
 
 export interface AnnouncementSource {
   title: string;
   publisher: string;
   url: string;
   type: AnnouncementSourceType;
-  isVerifiedFiling: boolean;
   documentTitle?: string;
-  format?: 'PDF' | 'XBRL' | 'PORTAL';
+  format?: 'PDF' | 'XBRL' | 'PORTAL' | 'ARTICLE';
 }
 
 export interface CorporateAnnouncement {
@@ -45,8 +45,8 @@ export interface CorporateAnnouncement {
   category: AnnouncementCategory;
   priority: AnnouncementPriority;
   priorityRationale: string;
-  publishedAt: string; // ISO 8601 string for sorting: "YYYY-MM-DDTHH:mm:ss"
-  displayDate: string; // Formatted date string for editorial presentation
+  publishedAt: string; // ISO 8601 string: "YYYY-MM-DDTHH:mm:ss"
+  displayDate: string; // Formatted date string with context (e.g. "Filing Date: Oct 22, 2024")
   source?: AnnouncementSource;
   provenance: AnnouncementProvenance;
   provenanceLabel: string;
@@ -58,18 +58,22 @@ export interface CorporateAnnouncement {
 
 export type AnnouncementCategoryFilter = 'ALL' | AnnouncementCategory;
 export type AnnouncementPriorityFilter = 'ALL' | 'HIGH_ONLY';
+export type AnnouncementProvenanceFilter = 'ALL' | AnnouncementProvenance;
 export type AnnouncementSortOption = 'NEWEST_FIRST' | 'OLDEST_FIRST' | 'PRIORITY_DESC';
 
 export interface AnnouncementFilterState {
   searchQuery: string;
   category: AnnouncementCategoryFilter;
   priority: AnnouncementPriorityFilter;
+  provenance?: AnnouncementProvenanceFilter;
   sortBy: AnnouncementSortOption;
 }
 
 export interface AnnouncementFeedMetrics {
   totalCount: number;
-  verifiedCount: number;
+  primaryDocCount: number;
+  archiveLinkCount: number;
+  secondarySourceCount: number;
   demoCount: number;
   highPriorityCount: number;
   categoryCounts: Record<AnnouncementCategory, number>;
