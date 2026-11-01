@@ -42,9 +42,19 @@ export function calculatePriceMovement(
 }
 
 /**
- * Calculates the 20-day historical average volume (excluding the current session)
+ * Calculates the 20-session historical average volume (strictly excluding the current session)
  * and the ratio of current volume against this baseline.
- * Safely handles insufficient sessions (<20), zero volume, and missing current session volume.
+ *
+ * Treatment of Zero-Volume and Invalid Observations:
+ * 1. Zero-volume sessions (volume === 0): Treated as valid historical observations (e.g. trading
+ *    halts, suspended trading, or zero-volume sessions). They are included in the 20-session baseline,
+ *    contribute 0 to the sum, and count towards the required 20 observations.
+ * 2. Invalid observations (null, undefined, NaN, or volume < 0): Rejected as invalid.
+ * 3. Threshold requirement: Exactly 20 valid historical volume observations are strictly required.
+ *    If fewer than 20 valid observations exist, returns { avg20dVolume: null, volumeRatio: null, isInsufficientVolumeHistory: true }.
+ * 4. Zero historical baseline: If all 20 historical sessions have 0 volume (avg20dVolume === 0),
+ *    volumeRatio is explicitly returned as null to prevent division by zero.
+ * 5. Zero current volume: If currentVolume === 0 and avg20dVolume > 0, volumeRatio is safely 0.00.
  */
 export function calculateVolumeRatio(
   currentVolume: number | null,
@@ -62,15 +72,16 @@ export function calculateVolumeRatio(
     };
   }
 
-  // Exactly slice the previous 20 sessions (excluding today's current session)
+  // Exactly slice the previous 20 sessions (strictly excluding today's current session)
   const previous20Sessions = pastSessions.slice(-20);
+
+  // Zero-volume observations (volume === 0) are valid observations; filter out null/NaN/negative
   const validSessions = previous20Sessions.filter(
     (s) => typeof s.volume === 'number' && !isNaN(s.volume) && s.volume >= 0
   );
 
-  const isInsufficientVolumeHistory = validSessions.length < 20;
-
-  if (validSessions.length === 0) {
+  // Exactly 20 valid historical volume observations are strictly required
+  if (validSessions.length < 20) {
     return {
       avg20dVolume: null,
       volumeRatio: null,
@@ -79,20 +90,28 @@ export function calculateVolumeRatio(
   }
 
   const totalVolume = validSessions.reduce((acc, s) => acc + s.volume, 0);
-  // Average across valid historical sessions (strictly preceding current day)
-  const avg20dVolume = Math.round(totalVolume / validSessions.length);
+  const avg20dVolume = Math.round(totalVolume / 20);
 
+  // Explicitly guard against division by zero if all 20 historical sessions have 0 volume
+  if (avg20dVolume === 0) {
+    return {
+      avg20dVolume: 0,
+      volumeRatio: null,
+      isInsufficientVolumeHistory: false,
+    };
+  }
+
+  // Validate current session volume
   if (
     currentVolume === null ||
     typeof currentVolume !== 'number' ||
     isNaN(currentVolume) ||
-    currentVolume < 0 ||
-    avg20dVolume <= 0
+    currentVolume < 0
   ) {
     return {
       avg20dVolume,
       volumeRatio: null,
-      isInsufficientVolumeHistory,
+      isInsufficientVolumeHistory: false,
     };
   }
 
@@ -101,7 +120,7 @@ export function calculateVolumeRatio(
   return {
     avg20dVolume,
     volumeRatio,
-    isInsufficientVolumeHistory,
+    isInsufficientVolumeHistory: false,
   };
 }
 

@@ -1,8 +1,10 @@
 import { StockRawData, DailySession } from '../types/portfolio';
 
 /**
- * Deterministic generator for realistic 20-session trading history.
+ * Deterministic generator for realistic trading history.
  * Generates an array of past trading sessions chronologically (oldest to newest).
+ * Continuously advances calendar dates, skipping weekends, until exactly `count`
+ * weekday sessions have been generated.
  */
 function generateHistoricalSessions(
   basePrice: number,
@@ -12,31 +14,31 @@ function generateHistoricalSessions(
 ): DailySession[] {
   const sessions: DailySession[] = [];
   let currentPrice = basePrice * 0.95;
-  const baseDate = new Date('2026-10-01');
+  const currentDate = new Date('2026-10-01');
+  let step = 0;
 
-  for (let i = 0; i < count; i++) {
-    const sessionDate = new Date(baseDate);
-    sessionDate.setDate(baseDate.getDate() + i);
+  while (sessions.length < count) {
+    const day = currentDate.getDay();
+    // Skip weekends (0 = Sunday, 6 = Saturday) for realistic trading days
+    if (day !== 0 && day !== 6) {
+      // Deterministic price fluctuation based on step index
+      const seed = Math.sin(step * 1.7 + basePrice) * volatility;
+      currentPrice = Number((currentPrice * (1 + seed)).toFixed(2));
 
-    // Skip weekends for realistic trading days
-    const day = sessionDate.getDay();
-    if (day === 0 || day === 6) continue;
+      // Deterministic volume fluctuation based on step index
+      const volFactor = 0.8 + Math.abs(Math.cos(step * 2.3 + baseVolume)) * 0.45;
+      const sessionVolume = Math.round(baseVolume * volFactor);
 
-    // Pseudo-deterministic price fluctuation
-    const seed = Math.sin(i * 1.7 + basePrice) * volatility;
-    currentPrice = Number((currentPrice * (1 + seed)).toFixed(2));
+      sessions.push({
+        date: currentDate.toISOString().split('T')[0],
+        close: currentPrice,
+        volume: sessionVolume,
+      });
 
-    // Pseudo-deterministic volume fluctuation
-    const volFactor = 0.8 + Math.abs(Math.cos(i * 2.3 + baseVolume)) * 0.45;
-    const sessionVolume = Math.round(baseVolume * volFactor);
+      step++;
+    }
 
-    sessions.push({
-      date: sessionDate.toISOString().split('T')[0],
-      close: currentPrice,
-      volume: sessionVolume,
-    });
-
-    if (sessions.length >= count) break;
+    currentDate.setDate(currentDate.getDate() + 1);
   }
 
   return sessions;
