@@ -11,14 +11,22 @@ import { CorporateAnnouncement } from '../types/announcements';
  * - 'SECONDARY_SOURCE': Event details are supported by reputable financial media citing regulatory disclosures.
  * - 'DEMO_DATA': Conspicuously labelled illustrative synthetic entries for interface evaluation.
  *
+ * SOURCE TYPE TAXONOMY:
+ * - 'EXCHANGE_FILING': Direct statutory filing submitted to securities exchange or regulator (e.g. SEBI/NSE/BSE).
+ * - 'COMPANY_PRESS_RELEASE': Official company press release issued by corporate communications newsroom.
+ * - 'COMPANY_REGULATORY_DISCLOSURE': Official corporate statement or disclosure document published by investor relations.
+ * - 'EXCHANGE_ARCHIVE': Broad exchange corporate disclosures repository.
+ * - 'SECONDARY_MEDIA': Reputable financial news coverage citing primary statements.
+ * - 'SIMULATED_PORTAL': Illustrative demonstration lookup option.
+ *
  * NOTE ON IDENTIFIERS & DATES:
- * - No exchange filing numbers are fabricated.
+ * - Zero exchange filing numbers are fabricated.
  * - Dates reflect the verified source publication, corporate disclosure, or documented event date.
  */
 
 export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
   // =========================================================================
-  // 1. VERIFIED EXACT PRIMARY DOCUMENTS (Direct primary filings / official releases)
+  // 1. VERIFIED EXACT PRIMARY DOCUMENTS (Direct primary filings / official company releases)
   // =========================================================================
   {
     id: 'ann-swiggy-rhp-listing',
@@ -26,28 +34,28 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     companyName: 'Swiggy Limited',
     isin: 'INE00H001014',
     sector: 'Consumer Technology',
-    title: 'Filing of Prospectus with ROC & Listing Notification on BSE and NSE',
+    title: 'Swiggy Files Red Herring Prospectus',
     summary:
-      'Swiggy Limited completed the filing of its final Prospectus with the Registrar of Companies and received in-principle listing approval from BSE and NSE for its ₹11,327 Cr Initial Public Offering under SEBI (Issue of Capital and Disclosure Requirements) Regulations.',
+      'Swiggy Limited filed its Red Herring Prospectus (RHP) with the Registrar of Companies and market regulator SEBI for an Initial Public Offering aggregating up to ₹11,327 Cr, comprising a fresh issue of shares up to ₹4,499 Cr and an Offer for Sale (OFS) of up to 175.1 million equity shares (up to ₹6,828 Cr) by selling shareholders.',
     category: 'REGULATORY_LEGAL',
     priority: 'HIGH',
-    priorityRationale: 'Primary capital formation disclosure and milestone transition to publicly traded exchange status.',
-    publishedAt: '2024-11-06T15:30:00+05:30',
-    displayDate: 'Filing Date: Nov 06, 2024 • 15:30 IST',
+    priorityRationale: 'Milestone regulatory filing for ₹11,327 Cr public equity offering under SEBI ICDR Regulations.',
+    publishedAt: '2024-10-28T09:30:00+05:30',
+    displayDate: 'Filing Date: Oct 28, 2024',
     provenance: 'VERIFIED_PRIMARY_DOCUMENT',
     provenanceLabel: 'VERIFIED PRIMARY DOCUMENT',
     isDemo: false,
     keyHighlights: [
-      'Total Offer Size: ₹11,327 Cr (Fresh Issue: ₹4,499 Cr; OFS: ₹6,828 Cr)',
-      'Listing date scheduled for November 13, 2024',
-      'Designated Stock Exchange: NSE India',
+      'Total Offer Size: Up to ₹11,327 Cr (Fresh Issue: up to ₹4,499 Cr; OFS: up to ₹6,828 Cr)',
+      'Issue Bid Period: Opened November 6, 2024; Closed November 8, 2024',
+      'Designated Stock Exchange: National Stock Exchange of India (NSE)',
     ],
     source: {
       title: 'SEBI Public Issues Filings — Swiggy Limited Red Herring Prospectus (RHP)',
       publisher: 'Securities and Exchange Board of India (SEBI Official Filings Portal)',
-      url: 'https://www.sebi.gov.in/filings/public-issues/nov-2024/swiggy-limited-rhp_88177.html',
-      type: 'PRIMARY_FILING',
-      documentTitle: 'SEBI Official Public Issues Filing Repository (Nov 2024)',
+      url: 'https://www.sebi.gov.in/filings/public-issues/oct-2024/swiggy-limited-rhp_88045.html',
+      type: 'EXCHANGE_FILING',
+      documentTitle: 'Swiggy Limited - RHP',
       format: 'PORTAL',
     },
   },
@@ -57,31 +65,93 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     companyName: 'Tata Consultancy Services Limited',
     isin: 'INE467B01029',
     sector: 'Information Technology',
-    title: 'Audited Financial Results for Q2 FY25 & Declaration of Second Interim Dividend of ₹10/share',
+    title: 'TCS Announces Q2 FY25 Results and ₹10 Second Interim Dividend',
     summary:
-      'TCS reported Q2 FY25 consolidated revenue of ₹64,259 Cr (+7.6% YoY) and net profit of ₹11,909 Cr (+5.0% YoY). Operating margin held firm at 24.1%. The Board declared a second interim dividend of ₹10 per equity share with record date October 18, 2024.',
+      'TCS announced its financial results for Q2 FY25 reporting consolidated revenue of US$7.67 billion (+6.4% YoY, +6.7% in constant currency) and net income of US$1.42 billion (+3.8% YoY). Operating margin held firm at 24.1%. The Board declared a second interim dividend of ₹10 per equity share with record date October 18, 2024, and payment date November 5, 2024.',
     category: 'FINANCIAL_RESULTS',
     priority: 'HIGH',
-    priorityRationale: 'Tier-1 IT quarterly audited earnings coupled with cash dividend capital return.',
+    priorityRationale: 'Tier-1 IT bellwether quarterly audited results and cash dividend capital return declaration.',
     publishedAt: '2024-10-10T19:00:00+05:30',
     displayDate: 'Disclosure Date: Oct 10, 2024 • 19:00 IST',
     provenance: 'VERIFIED_PRIMARY_DOCUMENT',
     provenanceLabel: 'VERIFIED PRIMARY DOCUMENT',
     isDemo: false,
     keyHighlights: [
-      'Revenue: ₹64,259 Cr (+7.6% YoY, +2.6% QoQ in INR terms)',
-      'Net Profit: ₹11,909 Cr (+5.0% YoY)',
+      'Revenue: US$7.67 billion (+6.4% YoY, +6.7% constant currency)',
       'Operating Margin: 24.1% (expansion of 20 bps YoY)',
-      'Dividend: ₹10 per share second interim dividend',
-      'Net headcount addition: +5,726 employees',
+      'Net Income: US$1.42 billion (+3.8% YoY)',
+      'Second Interim Dividend: ₹10 per share (Record Date: Oct 18, 2024; Payment Date: Nov 5, 2024)',
     ],
     source: {
-      title: 'TCS Official Newsroom — Q2 FY25 Financial Results & Corporate Disclosures',
-      publisher: 'Tata Consultancy Services Limited (Corporate Press & Regulatory Newsroom)',
-      url: 'https://www.tcs.com/newsroom/press-releases/tcs-q2-fy25-financial-results-growth-momentum',
-      type: 'PRIMARY_FILING',
-      documentTitle: 'Official Company Press Release & Financial Disclosure (Oct 10, 2024)',
+      title: 'TCS Official Newsroom — TCS Financial Results Q2 FY 2025',
+      publisher: 'Tata Consultancy Services Limited (Corporate Press Release)',
+      url: 'https://www.tcs.com/who-we-are/newsroom/press-release/tcs-financial-results-q2-fy-2025',
+      type: 'COMPANY_PRESS_RELEASE',
+      documentTitle: 'TCS Financial Results Q2 FY 2025 Press Release',
       format: 'ARTICLE',
+    },
+  },
+  {
+    id: 'ann-reliance-bonus-issue',
+    ticker: 'RELIANCE',
+    companyName: 'Reliance Industries Limited',
+    isin: 'INE002A01018',
+    sector: 'Conglomerate / Energy',
+    title: 'Reliance Board Approves 1:1 Bonus Issue — Largest in Indian Equity Markets',
+    summary:
+      'The Board of Directors of Reliance Industries Limited recommended the issuance of bonus equity shares in the ratio of 1:1 (one new fully paid-up equity share of ₹10 each for every one existing share held), capitalizing securities premium and general reserves, representing the largest bonus issuance in Indian capital market history.',
+    category: 'CORPORATE_ACTIONS_FUNDRAISING',
+    priority: 'HIGH',
+    priorityRationale: 'Material corporate action doubling total issued equity share capital for India’s largest market-cap issuer.',
+    publishedAt: '2024-09-05T17:15:00+05:30',
+    displayDate: 'Disclosure Date: Sep 05, 2024 • 17:15 IST',
+    provenance: 'VERIFIED_PRIMARY_DOCUMENT',
+    provenanceLabel: 'VERIFIED PRIMARY DOCUMENT',
+    isDemo: false,
+    keyHighlights: [
+      'Bonus ratio: 1:1 (1 bonus share for every 1 existing equity share held)',
+      'Total bonus shares to be issued: ~676.6 crore equity shares',
+      'Capitalized from Securities Premium Account and General Reserves',
+      'Largest bonus share issuance in the history of Indian equity markets',
+    ],
+    source: {
+      title: 'RIL Media Release — Board Approves 1:1 Bonus Issue',
+      publisher: 'Reliance Industries Limited (Corporate Communications)',
+      url: 'https://www.ril.com/sites/default/files/2024-09/Media-Release-RIL-Board-Approves-1-1-Bonus-Issue-Largest-Bonus-Issue-In-Indian-Equity-Markets-06022023.pdf',
+      type: 'COMPANY_PRESS_RELEASE',
+      documentTitle: 'Media Release: RIL Board Approves 1:1 Bonus Issue',
+      format: 'PDF',
+    },
+  },
+  {
+    id: 'ann-infosys-dggi-statement',
+    ticker: 'INFY',
+    companyName: 'Infosys Limited',
+    isin: 'INE009A01021',
+    sector: 'Information Technology',
+    title: 'Infosys Reports Closure of ₹3,898 Cr DGGI Proceedings for FY2017-18',
+    summary:
+      'Infosys issued an official company statement on August 3, 2024, confirming receipt of communication from the Directorate General of GST Intelligence (DGGI) closing the pre-show cause notice proceedings for ₹3,898 crore pertaining to FY2017-18 only. The company stated that the ongoing verification for subsequent fiscal years remained pending.',
+    category: 'REGULATORY_LEGAL',
+    priority: 'HIGH',
+    priorityRationale: 'Closure of ₹3,898 Cr tax liability notice for FY2017-18; subsequent periods remained under review.',
+    publishedAt: '2024-08-03T18:00:00+05:30',
+    displayDate: 'Disclosure Date: Aug 03, 2024',
+    provenance: 'VERIFIED_PRIMARY_DOCUMENT',
+    provenanceLabel: 'VERIFIED PRIMARY DOCUMENT',
+    isDemo: false,
+    keyHighlights: [
+      'Closure applies specifically to the FY2017-18 pre-show cause notice of ₹3,898 Cr',
+      'Subsequent fiscal periods (FY2018-19 through FY2021-22) remained under ongoing review',
+      'Reaffirmed company position that GST does not apply to reimbursable branch expenses',
+    ],
+    source: {
+      title: 'Infosys Company Statement — Communication from Directorate General of GST Intelligence',
+      publisher: 'Infosys Limited Investor Relations',
+      url: 'https://www.infosys.com/investors/documents/further-company-statement3aug2024.pdf',
+      type: 'COMPANY_REGULATORY_DISCLOSURE',
+      documentTitle: 'Official Company Statement (August 3, 2024)',
+      format: 'PDF',
     },
   },
   {
@@ -90,9 +160,9 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     companyName: 'Bharti Airtel Limited',
     isin: 'INE397D01024',
     sector: 'Telecommunications',
-    title: 'Bharti Airtel and Google Cloud Announce Strategic Partnership for Enterprise Cloud & AI Solutions',
+    title: 'Bharti Airtel and Google Cloud Announce Strategic Partnership for Cloud & Generative AI Solutions',
     summary:
-      'Bharti Airtel and Google Cloud entered into a strategic collaboration to deliver cloud solutions and generative AI infrastructure to Indian enterprises. Airtel integrates Google Cloud Suite with its 5G connectivity and data center infrastructure managed by Nxtra.',
+      'Bharti Airtel and Google Cloud announced a long-term strategic collaboration to accelerate cloud adoption and deploy generative AI solutions for Indian businesses. The partnership combines Airtel’s enterprise connectivity and data center infrastructure managed by Nxtra with Google Cloud’s AI suite.',
     category: 'ORDERS_CONTRACTS',
     priority: 'MEDIUM',
     priorityRationale: 'Commercial technology alliance expanding B2B digital service distribution; non-binding contract value.',
@@ -102,16 +172,16 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     provenanceLabel: 'VERIFIED PRIMARY DOCUMENT',
     isDemo: false,
     keyHighlights: [
-      'Partnership with Google Cloud for AI-first enterprise products',
-      'Integration across 2,000 large enterprises and 1 million+ emerging businesses',
-      'Targeting edge cloud infrastructure at Nxtra data centers',
+      'Strategic alliance targeting 2,000+ large enterprises and 1 million+ emerging businesses',
+      'Integration of Google Cloud Generative AI solutions with Airtel telecom suite',
+      'Edge cloud compute deployment across Nxtra data centers in India',
     ],
     source: {
-      title: 'Bharti Airtel Official Corporate Newsroom — Strategic Cloud Alliance Announcement',
+      title: 'Bharti Airtel Press Release — Airtel and Google Cloud enter into a long-term strategic collaboration',
       publisher: 'Bharti Airtel Limited (Corporate Communications Portal)',
-      url: 'https://www.airtel.in/press-release/05-2024/airtel-and-google-cloud-join-forces-to-accelerate-cloud-adoption-and-transform-customer-experience-for-indian-enterprises',
-      type: 'PRIMARY_FILING',
-      documentTitle: 'Official Company Press Release & Corporate Disclosure (May 13, 2024)',
+      url: 'https://www.airtel.in/press-release/05-2024/airtel-and-google-cloud-enter-into-a-long-term-strategic-collaboration-to-accelerate-cloud-adoption-and-deploy-generative-ai-solutions',
+      type: 'COMPANY_PRESS_RELEASE',
+      documentTitle: 'Official Company Press Release (May 13, 2024)',
       format: 'ARTICLE',
     },
   },
@@ -146,38 +216,6 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
       title: 'BSE Corporate Announcements Repository — Zomato Limited (Scrip: 543320)',
       publisher: 'BSE India Corporate Announcements Archive',
       url: 'https://www.bseindia.com/stock-share-price/zomato-ltd/zomato/543320/corp-announcements/',
-      type: 'EXCHANGE_ARCHIVE',
-      documentTitle: 'Broad Exchange Archive (Individual filing PDF not resolved)',
-      format: 'PORTAL',
-    },
-  },
-  {
-    id: 'ann-reliance-bonus-issue',
-    ticker: 'RELIANCE',
-    companyName: 'Reliance Industries Limited',
-    isin: 'INE002A01018',
-    sector: 'Conglomerate / Energy',
-    title: 'Outcome of Board Meeting: Recommendation of 1:1 Bonus Share Issue',
-    summary:
-      'The Board of Directors of Reliance Industries recommended the issuance of bonus equity shares in the ratio of 1:1 (one new fully paid-up equity share of ₹10 each for every one existing share held), capitalizing securities premium and general reserves, subject to shareholder approval via postal ballot.',
-    category: 'CORPORATE_ACTIONS_FUNDRAISING',
-    priority: 'HIGH',
-    priorityRationale: 'Material corporate action doubling total issued equity share capital for India’s largest market-cap issuer.',
-    publishedAt: '2024-09-05T17:15:00+05:30',
-    displayDate: 'Event Date: Sep 05, 2024 • 17:15 IST',
-    provenance: 'OFFICIAL_ARCHIVE_LINK',
-    provenanceLabel: 'OFFICIAL ARCHIVE LINK',
-    isDemo: false,
-    keyHighlights: [
-      'Bonus ratio: 1:1 (1 bonus share for every 1 existing equity share)',
-      'Total bonus shares to be issued: ~676.6 crore equity shares',
-      'Capitalized from: Securities Premium and General Reserves',
-      'First bonus issue since 2017',
-    ],
-    source: {
-      title: 'BSE Corporate Disclosures Archive — Reliance Industries Ltd. (Scrip: 500325)',
-      publisher: 'BSE India Corporate Disclosures Archive',
-      url: 'https://www.bseindia.com/stock-share-price/reliance-industries-ltd/reliance/500325/corp-announcements/',
       type: 'EXCHANGE_ARCHIVE',
       documentTitle: 'Broad Exchange Archive (Individual filing PDF not resolved)',
       format: 'PORTAL',
@@ -248,42 +286,7 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
   },
 
   // =========================================================================
-  // 3. SECONDARY MEDIA SOURCES (Reputable financial press citing disclosures)
-  // =========================================================================
-  {
-    id: 'ann-infy-dggi-gst-closure',
-    ticker: 'INFY',
-    companyName: 'Infosys Limited',
-    isin: 'INE009A01021',
-    sector: 'Information Technology',
-    title: 'SEBI Reg 30 Disclosure: DGGI Closes Pre-Show Cause Notice of ₹3,898 Cr Related to Overseas Branches',
-    summary:
-      'Infosys received communication from the Directorate General of GST Intelligence (DGGI) closing the pre-show cause notice proceedings for ₹3,898 Cr pertaining to FY 2017-18 to FY 2021-22 for expenses incurred by overseas branch offices, concluding that no GST liability arose on reimbursable disbursements.',
-    category: 'REGULATORY_LEGAL',
-    priority: 'HIGH',
-    priorityRationale: 'Resolution of major indirect tax proceedings removing a ₹3,898 Cr contingent balance-sheet risk.',
-    publishedAt: '2024-08-04T12:00:00+05:30',
-    displayDate: 'Reported Date: Aug 04, 2024 • 12:00 IST',
-    provenance: 'SECONDARY_SOURCE',
-    provenanceLabel: 'SECONDARY SOURCE',
-    isDemo: false,
-    keyHighlights: [
-      'Closure of ₹3,898 Cr pre-show cause notice from DGGI',
-      'Relief covers assessment years 2017-18 through 2021-22',
-      'Confirms export service exemption principles for foreign branches',
-    ],
-    source: {
-      title: 'The Economic Times — Infosys says DGGI closes pre-show cause notice of ₹3,898 crore',
-      publisher: 'The Economic Times (Tech / Corporate Legal Desk)',
-      url: 'https://economictimes.indiatimes.com/tech/information-tech/infosys-says-dggi-closes-pre-show-cause-notice-of-rs-3898-crore/articleshow/112267599.cms',
-      type: 'SECONDARY_MEDIA',
-      documentTitle: 'Verified Financial Press Report citing Company SEBI Disclosure',
-      format: 'ARTICLE',
-    },
-  },
-
-  // =========================================================================
-  // 4. ILLUSTRATIVE DEMO ANNOUNCEMENTS (CONSPICUOUSLY LABELED DEMO DATA)
+  // 3. ILLUSTRATIVE DEMO ANNOUNCEMENTS (CONSPICUOUSLY LABELED DEMO DATA)
   // =========================================================================
   {
     id: 'ann-itc-cp-issue-demo',

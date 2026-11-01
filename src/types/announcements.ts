@@ -20,7 +20,9 @@ export type AnnouncementProvenance =
   | 'DEMO_DATA';
 
 export type AnnouncementSourceType =
-  | 'PRIMARY_FILING'
+  | 'EXCHANGE_FILING'
+  | 'COMPANY_PRESS_RELEASE'
+  | 'COMPANY_REGULATORY_DISCLOSURE'
   | 'EXCHANGE_ARCHIVE'
   | 'SECONDARY_MEDIA'
   | 'SIMULATED_PORTAL';

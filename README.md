@@ -39,11 +39,17 @@ A high-performance investor intelligence interface for Indian equity markets (NS
 ### 3. Corporate Announcement Intelligence Feed
 - **Regulatory Categorization**: Segmented into 5 SEBI LODR categories (Financial Results, Orders & Contracts, Corporate Actions & Fundraising, Management & Governance, Regulatory & Legal).
 - **FINN Editorial Assessment (Materiality)**: Explicit criteria for `HIGH`, `MEDIUM`, and `ROUTINE` priority based on disclosed transaction scale and operational significance, not an objective market price prediction.
-- **4-Tier Provenance Taxonomy**:
-  - `VERIFIED PRIMARY DOCUMENT`: Exact official statutory filing, regulatory submission, or company disclosure resolved and linked directly (`Open filing ↗`).
+- **4-Tier Provenance & Source Type Taxonomy**:
+  - `VERIFIED PRIMARY DOCUMENT`: Exact official statutory filing, regulatory submission, or company disclosure resolved and linked directly (`Open filing ↗` or `Open company disclosure ↗`).
   - `OFFICIAL ARCHIVE LINK`: Official exchange or company announcements repository provided where the specific document is not individually isolated (`Open exchange archive ↗`).
   - `SECONDARY SOURCE`: Event supported by reputable financial media reporting citing corporate disclosures (`Read secondary coverage ↗`).
   - `DEMO ANNOUNCEMENT`: Conspicuously labelled synthetic market illustrations for interface evaluation, providing exchange portal lookup (`Inspect exchange portal ↗`). Zero fabricated filing numbers.
+- **Source Type Distinction**:
+  - `EXCHANGE_FILING`: Direct regulatory filing with exchange or regulator (`Open filing ↗`).
+  - `COMPANY_PRESS_RELEASE` / `COMPANY_REGULATORY_DISCLOSURE`: Official company newsroom release or investor relations statement (`Open company disclosure ↗`).
+  - `EXCHANGE_ARCHIVE`: Broad exchange announcements repository (`Open exchange archive ↗`).
+  - `SECONDARY_MEDIA`: Reputable financial press reporting citing regulatory disclosures (`Read secondary coverage ↗`).
+  - `SIMULATED_PORTAL`: Synthetic demonstration lookup option (`Inspect exchange portal ↗`).
 - **Search & Multi-Criteria Sort**: Search across company names, tickers, sectors, and key terms; sort by publication date (newest/oldest) or materiality.
 - **Direct Research Deep-Links**: One-click transition from any announcement card directly into the company's Research Copilot dossier.
 

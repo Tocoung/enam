@@ -119,13 +119,15 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
             <FileText className="w-3 h-3 text-sky-400 shrink-0" />
             <span>{metrics.archiveLinkCount} Archive Links</span>
           </div>
-          <div
-            title="Event details supported by reputable financial media citing regulatory disclosures"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]"
-          >
-            <Newspaper className="w-3 h-3 text-purple-400 shrink-0" />
-            <span>{metrics.secondarySourceCount} Secondary</span>
-          </div>
+          {metrics.secondarySourceCount > 0 && (
+            <div
+              title="Event details supported by reputable financial media citing regulatory disclosures"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]"
+            >
+              <Newspaper className="w-3 h-3 text-purple-400 shrink-0" />
+              <span>{metrics.secondarySourceCount} Secondary</span>
+            </div>
+          )}
           <div
             title="Illustrative synthetic entry for interface evaluation"
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]"
@@ -353,19 +355,24 @@ const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   const isHigh = announcement.priority === 'HIGH';
   const isMedium = announcement.priority === 'MEDIUM';
 
-  // Determine button label according to Section 7 guidelines
+  // Determine button label according to Section 6 & 7 guidelines
   const getSourceLinkLabel = () => {
-    switch (announcement.provenance) {
-      case 'VERIFIED_PRIMARY_DOCUMENT':
-        return 'Open filing ↗';
-      case 'OFFICIAL_ARCHIVE_LINK':
-        return 'Open exchange archive ↗';
-      case 'SECONDARY_SOURCE':
-        return 'Read secondary coverage ↗';
-      case 'DEMO_DATA':
-      default:
-        return 'Inspect exchange portal ↗';
+    if (announcement.provenance === 'VERIFIED_PRIMARY_DOCUMENT') {
+      if (
+        announcement.source?.type === 'COMPANY_PRESS_RELEASE' ||
+        announcement.source?.type === 'COMPANY_REGULATORY_DISCLOSURE'
+      ) {
+        return 'Open company disclosure ↗';
+      }
+      return 'Open filing ↗';
     }
+    if (announcement.provenance === 'OFFICIAL_ARCHIVE_LINK') {
+      return 'Open exchange archive ↗';
+    }
+    if (announcement.provenance === 'SECONDARY_SOURCE') {
+      return 'Read secondary coverage ↗';
+    }
+    return 'Inspect exchange portal ↗';
   };
 
   // Determine button styling based on provenance
