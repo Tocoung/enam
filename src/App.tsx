@@ -1,97 +1,166 @@
-import { useState } from 'react';
-import { TrendingUp, Bell, Search, Activity, Sparkles } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft } from './components/icons';
+import { PORTFOLIO_RAW_DATA, DEFAULT_THRESHOLDS } from './data/portfolioData';
+import {
+  computeStockMetrics,
+  deriveAlerts,
+} from './services/portfolioMetrics';
+import {
+  ThresholdConfig,
+  AlertFilterCategory,
+} from './types/portfolio';
+import { Header } from './components/Header';
+import { PortfolioSummary } from './components/PortfolioSummary';
+import { AlertFeed } from './components/AlertFeed';
+import { Watchlist } from './components/Watchlist';
+import { ThresholdSettingsModal } from './components/ThresholdSettingsModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'alerts' | 'research'>('portfolio');
+  // Configurable alert thresholds
+  const [thresholds, setThresholds] = useState<ThresholdConfig>(DEFAULT_THRESHOLDS);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Active view for mobile navigation
+  const [mobileTab, setMobileTab] = useState<'watchlist' | 'alerts' | 'overview'>('watchlist');
+
+  // Interactive selection state
+  const [selectedTicker, setSelectedTicker] = useState<string | undefined>(undefined);
+  const [selectedAlertCategory, setSelectedAlertCategory] = useState<AlertFilterCategory>('ALL');
+
+  // Compute stock metrics (isolated calculation)
+  const stocksWithMetrics = useMemo(() => {
+    return PORTFOLIO_RAW_DATA.map(computeStockMetrics);
+  }, []);
+
+  // Derive alerts dynamically based on user-configured thresholds
+  const alerts = useMemo(() => {
+    return deriveAlerts(stocksWithMetrics, thresholds);
+  }, [stocksWithMetrics, thresholds]);
+
+  const highPriorityCount = useMemo(() => {
+    return alerts.filter((a) => a.severity === 'HIGH').length;
+  }, [alerts]);
+
+  const handleSelectTicker = (ticker: string) => {
+    setSelectedTicker(ticker);
+    // On mobile, switch to watchlist to view the selected company
+    setMobileTab('watchlist');
+  };
+
+  const activeThresholdsLabel = `±${thresholds.priceChangePercentThreshold}% / ${thresholds.volumeRatioThreshold}x`;
 
   return (
-    <div className="flex flex-col min-h-screen max-w-md mx-auto bg-slate-950 text-slate-100 border-x border-slate-800 shadow-2xl">
-      {/* Top Header */}
-      <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-500/20">
-            F
-          </div>
-          <div>
-            <h1 className="text-base font-semibold leading-tight tracking-tight">FINN</h1>
-            <p className="text-[10px] text-slate-400 font-medium">Investor Intelligence • NSE</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          Demo Mode
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-16 lg:pb-6 overflow-x-hidden w-full max-w-full">
+      {/* 1. Header with Unmistakable DEMO DATA warning */}
+      <Header
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        activeThresholdsLabel={activeThresholdsLabel}
+        stocksCount={stocksWithMetrics.length}
+      />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 pb-20 space-y-4 overflow-y-auto">
-        <div className="rounded-xl bg-gradient-to-br from-indigo-950/60 to-slate-900 border border-indigo-500/20 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Environment Ready</span>
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-          </div>
-          <h2 className="text-lg font-bold text-white">FINN Intelligence Core</h2>
-          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-            Development workflow established. Mobile-first investor intelligence engine initialized for 15–20 NSE portfolio tracking, real-time volume alerts, exchange announcements, and deep ticker research.
-          </p>
-        </div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5 overflow-x-hidden">
+        {/* 2. Portfolio Summary Cards */}
+        <PortfolioSummary
+          stocks={stocksWithMetrics}
+          alerts={alerts}
+          volumeThreshold={thresholds.volumeRatioThreshold}
+        />
 
-        {/* Quick Status Cards */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
-            <p className="text-[10px] text-slate-400">Portfolio</p>
-            <p className="text-sm font-bold text-slate-200 mt-0.5">18 Stocks</p>
+        {/* Selected Ticker Quick Filter Pill (if user clicked from alert) */}
+        {selectedTicker && (
+          <div className="flex items-center justify-between p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Inspecting highlighted company:</span>
+              <span className="font-mono font-bold text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/20">
+                {selectedTicker}
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedTicker(undefined)}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              <span>Clear selection</span>
+            </button>
           </div>
-          <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
-            <p className="text-[10px] text-slate-400">Volume Alert</p>
-            <p className="text-sm font-bold text-amber-400 mt-0.5">3 Active</p>
-          </div>
-          <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
-            <p className="text-[10px] text-slate-400">Filings Feed</p>
-            <p className="text-sm font-bold text-indigo-400 mt-0.5">Updated</p>
-          </div>
-        </div>
+        )}
 
-        {/* Tab Preview */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
-          <div className="flex items-center gap-2 text-slate-200 font-semibold mb-1">
-            <Activity className="w-4 h-4 text-emerald-400" />
-            <span>Workflow Status</span>
-          </div>
-          <p>
-            Vite + React + TypeScript + Tailwind CSS dev server ready. Next step: Implement P0 portfolio data feed and announcement prioritization.
-          </p>
+        {/* 3. Main Workspace: Dual-Pane on Desktop / Tabbed on Mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left/Main Column: Watchlist (Desktop: 7 or 8 cols, Mobile: when 'watchlist' or 'overview' tab active) */}
+          <section
+            className={`lg:col-span-8 space-y-4 ${
+              mobileTab === 'alerts' ? 'hidden lg:block' : 'block'
+            }`}
+          >
+            <Watchlist
+              stocks={stocksWithMetrics}
+              selectedTicker={selectedTicker}
+              onSelectTicker={handleSelectTicker}
+              volumeRatioThreshold={thresholds.volumeRatioThreshold}
+            />
+          </section>
+
+          {/* Right Column: Priority Alert Feed (Desktop: 4 cols, Mobile: when 'alerts' or 'overview' tab active) */}
+          <section
+            className={`lg:col-span-4 ${
+              mobileTab === 'watchlist' ? 'hidden lg:block' : 'block'
+            }`}
+          >
+            <AlertFeed
+              alerts={alerts}
+              selectedCategory={selectedAlertCategory}
+              onSelectCategory={setSelectedAlertCategory}
+              onSelectTicker={handleSelectTicker}
+            />
+          </section>
         </div>
       </main>
 
-      {/* Bottom Mobile Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-2 flex items-center justify-around z-20">
+      {/* 4. Settings Modal for Configurable Price & Volume Thresholds */}
+      <ThresholdSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        thresholds={thresholds}
+        onUpdateThresholds={setThresholds}
+        activeAlertCount={alerts.length}
+        highPriorityCount={highPriorityCount}
+      />
+
+      {/* 5. Mobile Bottom Navigation Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-4 py-2 flex items-center justify-around">
         <button
-          onClick={() => setActiveTab('portfolio')}
+          onClick={() => setMobileTab('watchlist')}
           className={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
-            activeTab === 'portfolio' ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
+            mobileTab === 'watchlist' ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <TrendingUp className="w-5 h-5" />
-          <span>Portfolio</span>
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Watchlist</span>
         </button>
+
         <button
-          onClick={() => setActiveTab('alerts')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
-            activeTab === 'alerts' ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
+          onClick={() => setMobileTab('alerts')}
+          className={`relative flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
+            mobileTab === 'alerts' ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4 h-4" />
           <span>Alerts</span>
+          {alerts.length > 0 && (
+            <span className="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold">
+              {alerts.length}
+            </span>
+          )}
         </button>
+
         <button
-          onClick={() => setActiveTab('research')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
-            activeTab === 'research' ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          onClick={() => setIsSettingsOpen(true)}
+          className="flex flex-col items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition-colors"
         >
-          <Search className="w-5 h-5" />
-          <span>Research</span>
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>Thresholds</span>
         </button>
       </nav>
     </div>
