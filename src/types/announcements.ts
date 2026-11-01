@@ -80,3 +80,21 @@ export interface AnnouncementFeedMetrics {
   highPriorityCount: number;
   categoryCounts: Record<AnnouncementCategory, number>;
 }
+
+export interface DatasetValidationFailure {
+  id: string;
+  field: string;
+  message: string;
+}
+
+export interface DatasetValidationResult {
+  isValid: boolean;
+  totalRecords: number;
+  failures: DatasetValidationFailure[];
+  counts: {
+    primaryDocuments: number;
+    archiveLinks: number;
+    secondarySources: number;
+    demoRecords: number;
+  };
+}

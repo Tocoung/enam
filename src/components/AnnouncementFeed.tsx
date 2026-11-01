@@ -117,7 +117,7 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px]"
           >
             <FileText className="w-3 h-3 text-sky-400 shrink-0" />
-            <span>{metrics.archiveLinkCount} Archive Links</span>
+            <span>{metrics.archiveLinkCount} {metrics.archiveLinkCount === 1 ? 'Archive Link' : 'Archive Links'}</span>
           </div>
           {metrics.secondarySourceCount > 0 && (
             <div

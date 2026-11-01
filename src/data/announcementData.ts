@@ -197,7 +197,7 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     sector: 'Consumer Technology',
     title: 'Outcome of Board Meeting: Q2 FY25 Financial Results & Approval of ₹8,500 Cr QIP Fundraising',
     summary:
-      'Zomato Board approved unaudited consolidated financial results for Q2 FY25 reporting Revenue of ₹4,799 Cr (+68.5% YoY) and Net Profit of ₹176 Cr. Simultaneously approved raising capital up to ₹8,500 Cr via Qualified Institutions Placement (QIP) under SEBI ICDR Regulations to strengthen balance sheet cash buffer.',
+      'Public exchange announcement records indicate Zomato reported board approval for Q2 FY25 financial results and an ₹8,500 Cr QIP fundraising proposal. Note: Individual filing documents are not retrieved or parsed in FINN; refer to the exchange archive repository.',
     category: 'FINANCIAL_RESULTS',
     priority: 'HIGH',
     priorityRationale: 'Price-sensitive financial disclosure combined with approved equity dilution proposal up to ₹8,500 Cr.',
@@ -207,10 +207,10 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     provenanceLabel: 'OFFICIAL ARCHIVE LINK',
     isDemo: false,
     keyHighlights: [
-      'Consolidated Revenue: ₹4,799 Cr (+68.5% YoY)',
-      'Profit After Tax (PAT): ₹176 Cr (vs ₹36 Cr in Q2 FY24)',
-      'Blinkit Quick Commerce GOV grew 122% YoY with 754 dark stores operating',
-      'Board approved QIP equity issuance up to ₹8,500 Cr',
+      'Exchange archive record for Q2 FY25 results & ₹8,500 Cr QIP equity proposal',
+      'Consolidated Revenue: ₹4,799 Cr (+68.5% YoY reported in archive)',
+      'Profit After Tax (PAT): ₹176 Cr (vs ₹36 Cr in Q2 FY24 reported in archive)',
+      'Individual submission document not parsed; refer to exchange repository',
     ],
     source: {
       title: 'BSE Corporate Announcements Repository — Zomato Limited (Scrip: 543320)',
@@ -221,6 +221,10 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
       format: 'PORTAL',
     },
   },
+
+  // =========================================================================
+  // 3. ILLUSTRATIVE DEMO ANNOUNCEMENTS (CONSPICUOUSLY LABELED DEMO DATA)
+  // =========================================================================
   {
     id: 'ann-lt-mega-hydrocarbon-order',
     ticker: 'LT',
@@ -235,9 +239,10 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     priorityRationale: 'High-value EPC order exceeding ₹5,000 Cr providing direct multi-year revenue backlog visibility.',
     publishedAt: '2024-09-18T11:30:00+05:30',
     displayDate: 'Event Date: Sep 18, 2024 • 11:30 IST',
-    provenance: 'OFFICIAL_ARCHIVE_LINK',
-    provenanceLabel: 'OFFICIAL ARCHIVE LINK',
-    isDemo: false,
+    provenance: 'DEMO_DATA',
+    provenanceLabel: 'DEMO ANNOUNCEMENT',
+    isDemo: true,
+    demoNotice: 'Illustrative synthetic announcement for interface demonstration. Not an actual regulatory filing.',
     keyHighlights: [
       'Classification: "Mega" Contract (₹5,000 Cr to ₹10,000 Cr bracket)',
       'Scope: Engineering, Procurement, Construction, and Installation (EPCI)',
@@ -245,11 +250,11 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
       'Client: Leading international energy producer in Middle East',
     ],
     source: {
-      title: 'BSE Corporate Announcements Archive — Larsen & Toubro Limited (Scrip: 500510)',
-      publisher: 'BSE India Corporate Announcements Archive',
+      title: 'L&T BSE Filings Portal',
+      publisher: 'BSE Public Exchange Portal',
       url: 'https://www.bseindia.com/stock-share-price/larsen--toubro-ltd/lt/500510/corp-announcements/',
-      type: 'EXCHANGE_ARCHIVE',
-      documentTitle: 'Broad Exchange Archive (Individual filing PDF not resolved)',
+      type: 'SIMULATED_PORTAL',
+      documentTitle: 'Illustrative Simulation — Inspect Live Exchange Page',
       format: 'PORTAL',
     },
   },
@@ -267,27 +272,24 @@ export const CORPORATE_ANNOUNCEMENTS: CorporateAnnouncement[] = [
     priorityRationale: 'Statutory board committee restructuring without chief executive or managing director transition.',
     publishedAt: '2024-07-20T16:10:00+05:30',
     displayDate: 'Event Date: Jul 20, 2024 • 16:10 IST',
-    provenance: 'OFFICIAL_ARCHIVE_LINK',
-    provenanceLabel: 'OFFICIAL ARCHIVE LINK',
-    isDemo: false,
+    provenance: 'DEMO_DATA',
+    provenanceLabel: 'DEMO ANNOUNCEMENT',
+    isDemo: true,
+    demoNotice: 'Illustrative synthetic announcement for interface demonstration. Not an actual regulatory filing.',
     keyHighlights: [
       'Reconstitution of Audit Committee under Companies Act 2013',
       'Induction of veteran banking risk professionals to Risk Policy Committee',
       'Compliance with SEBI (LODR) Regulation 18 & 21',
     ],
     source: {
-      title: 'BSE Corporate Disclosures Archive — HDFC Bank Limited (Scrip: 500180)',
-      publisher: 'BSE India Corporate Disclosures Archive',
+      title: 'HDFC Bank BSE Disclosures Portal',
+      publisher: 'BSE Public Exchange Portal',
       url: 'https://www.bseindia.com/stock-share-price/hdfc-bank-ltd/hdfcbank/500180/corp-announcements/',
-      type: 'EXCHANGE_ARCHIVE',
-      documentTitle: 'Broad Exchange Archive (Individual filing PDF not resolved)',
+      type: 'SIMULATED_PORTAL',
+      documentTitle: 'Illustrative Simulation — Inspect Live Exchange Page',
       format: 'PORTAL',
     },
   },
-
-  // =========================================================================
-  // 3. ILLUSTRATIVE DEMO ANNOUNCEMENTS (CONSPICUOUSLY LABELED DEMO DATA)
-  // =========================================================================
   {
     id: 'ann-itc-cp-issue-demo',
     ticker: 'ITC',
