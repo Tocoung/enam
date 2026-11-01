@@ -17,9 +17,25 @@ import { ThresholdSettingsModal } from './components/ThresholdSettingsModal';
 import { ResearchCopilot } from './components/ResearchCopilot';
 
 export default function App() {
-  // Navigation state between Dashboard and Research Copilot
-  const [activePage, setActivePage] = useState<'dashboard' | 'research'>('dashboard');
-  const [researchTicker, setResearchTicker] = useState<string | undefined>(undefined);
+  // Navigation state between Dashboard and Research Copilot (supports URL parameters for deep-linking)
+  const [activePage, setActivePage] = useState<'dashboard' | 'research'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('ticker') || params.get('page') === 'research') {
+        return 'research';
+      }
+    }
+    return 'dashboard';
+  });
+
+  const [researchTicker, setResearchTicker] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get('ticker');
+      if (t) return t.toUpperCase();
+    }
+    return undefined;
+  });
 
   // Configurable alert thresholds
   const [thresholds, setThresholds] = useState<ThresholdConfig>(DEFAULT_THRESHOLDS);

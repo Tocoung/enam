@@ -1,5 +1,13 @@
-import { ResearchReport, TickerValidationResult } from '../types/research';
-import { VERIFIED_RESEARCH_REGISTRY } from '../data/researchData';
+import {
+  ResearchReport,
+  TickerValidationResult,
+  FinancialMetric,
+  ExternalLookupLink,
+} from '../types/research';
+import {
+  VERIFIED_RESEARCH_REGISTRY,
+  LOCAL_NSE_MASTER_REGISTRY,
+} from '../data/researchData';
 
 /**
  * Validates arbitrary NSE ticker input:
@@ -7,6 +15,9 @@ import { VERIFIED_RESEARCH_REGISTRY } from '../data/researchData';
  * - Converts to uppercase
  * - Checks for non-empty string
  * - Validates against standard NSE equity symbol format (1-20 alphanumeric characters, with hyphens or ampersands)
+ *
+ * NOTE: Format validation ONLY establishes acceptable syntactic structure.
+ * It strictly does NOT imply that the security exists on the exchange.
  */
 export function validateTicker(rawInput: string): TickerValidationResult {
   if (!rawInput || typeof rawInput !== 'string') {
@@ -37,7 +48,7 @@ export function validateTicker(rawInput: string): TickerValidationResult {
       isValid: false,
       normalizedTicker: normalized,
       error:
-        'Invalid ticker format. NSE symbols contain only uppercase letters, numbers, hyphens, or ampersands (e.g. M&M, BAJAJ-AUTO).',
+        'Invalid ticker format. NSE symbols contain only uppercase letters, numbers, hyphens, or ampersands (e.g. M&M, BAJAJ-AUTO). Spaces and special characters ($ @ # , .) are not permitted.',
     };
   }
 
@@ -60,14 +71,12 @@ export const EXAMPLE_TICKERS = [
 ] as const;
 
 /**
- * Executes a research workflow for an arbitrary NSE ticker.
+ * Executes a research workflow for an arbitrary NSE ticker with strict data integrity:
  *
- * Multi-stage resolution:
- * 1. Validates ticker syntax.
- * 2. Checks optional live API endpoint if configured via VITE_FINANCIAL_API_URL.
- * 3. Consults the verified corporate intelligence registry for audited filings & thesis.
- * 4. For unindexed valid NSE tickers, provides a transparent unindexed report with authentic
- *    exchange lookup links, explicitly refusing to fabricate financial figures.
+ * Stage 1: Ticker format validation (syntax only; does not imply exchange listing).
+ * Stage 2: Check for Curated Research Dossier (pre-ingested audited FY24/Q2 FY25 filings & thesis).
+ * Stage 3: Check Local NSE Equity Master (symbol identity confirmed, but research not indexed).
+ * Stage 4: Unverified fallback (format valid, but identity NOT verified; no fabricated data).
  */
 export async function fetchCompanyResearch(tickerInput: string): Promise<ResearchReport> {
   const validation = validateTicker(tickerInput);
@@ -77,10 +86,10 @@ export async function fetchCompanyResearch(tickerInput: string): Promise<Researc
 
   const ticker = validation.normalizedTicker;
 
-  // Add realistic network latency to simulate asynchronous corporate disclosure retrieval
-  await new Promise((resolve) => setTimeout(resolve, 450));
+  // Add realistic network latency to simulate asynchronous resolution
+  await new Promise((resolve) => setTimeout(resolve, 380));
 
-  // Check verified corporate research registry
+  // Case 1: Curated research dossier with pre-ingested audited filings
   if (VERIFIED_RESEARCH_REGISTRY[ticker]) {
     const report = VERIFIED_RESEARCH_REGISTRY[ticker];
     return {
@@ -89,133 +98,142 @@ export async function fetchCompanyResearch(tickerInput: string): Promise<Researc
     };
   }
 
-  // Ticker is valid syntax but unindexed in the offline verified registry
-  // We construct a transparent, non-fabricated unindexed research report with genuine exchange links
-  return createUnindexedResearchReport(ticker);
+  // Case 2: Symbol confirmed in Local NSE Equity Master, but filings not yet indexed
+  if (LOCAL_NSE_MASTER_REGISTRY[ticker]) {
+    const masterEntry = LOCAL_NSE_MASTER_REGISTRY[ticker];
+    return createMasterIndexedReport(ticker, masterEntry.companyName, masterEntry.isin);
+  }
+
+  // Case 3: Arbitrary format-valid ticker NOT found in master or curated registry (e.g. CGFSDYMGUJHVGF)
+  return createUnverifiedIdentityReport(ticker);
 }
 
 /**
- * Builds a transparent report for an unindexed NSE ticker.
- * Strict Integrity Rule: Never fabricate financial metrics or citations.
+ * Builds an unindexed report for a symbol confirmed in the local NSE Equity Master.
+ * Shows verified identity, but explicitly refuses to fabricate filings, descriptions, or thesis.
  */
-function createUnindexedResearchReport(ticker: string): ResearchReport {
-  const today = new Date().toISOString().split('T')[0];
-
+function createMasterIndexedReport(
+  ticker: string,
+  companyName: string,
+  isin: string
+): ResearchReport {
   return {
     ticker,
-    provenance: 'UNINDEXED_EXCHANGE_LOOKUP',
+    hasCuratedCoverage: false,
+    identityStatus: 'SYMBOL_FOUND_IN_NSE_MASTER',
+    identityMessage: `Symbol matches an active security in the local NSE Equity Master (${companyName} • ISIN: ${isin}). However, audited financial statements and analytical research are not currently indexed in FINN's offline dataset.`,
+    provenance: 'SYMBOL_FOUND_IN_NSE_MASTER',
+    provenanceLabel: 'SYMBOL FOUND IN NSE MASTER',
     provenanceNote:
-      'Valid NSE equity symbol. Full audited filing extraction is currently unindexed in the offline verified registry. Real exchange portal links provided below.',
-    lastRetrieved: today,
-    isUnindexed: true,
-    companyOverview: {
-      companyName: `${ticker} (NSE Equity Symbol)`,
-      ticker,
-      sector: 'NSE Listed Capital Market Equity',
-      industry: 'Exchange Traded Security',
-      listingExchange: `NSE: ${ticker} / BSE`,
-      foundedYear: undefined,
-      headquarters: 'India',
-      businessDescription: `Equity share listed and traded on the National Stock Exchange of India (NSE) under symbol '${ticker}'. Primary statutory filings, annual accounts, and corporate governance disclosures are published on official exchange portals.`,
-      descriptionSource: 'National Stock Exchange of India (NSE) Equity Master Register',
-    },
-    financialSnapshot: [
-      {
-        key: 'revenue',
-        name: 'Annual Consolidated Revenue',
-        value: null,
-        formattedValue: 'Not Ingested in Offline Registry',
-        units: '₹ Cr',
-        period: 'FY24',
-        source: 'Official Exchange Portal',
-        isReported: false,
-        reportingNote: 'Direct exchange query required. FINN strictly does not fabricate unverified financial metrics.',
-      },
-      {
-        key: 'net_profit',
-        name: 'Profit After Tax (PAT)',
-        value: null,
-        formattedValue: 'Not Ingested in Offline Registry',
-        units: '₹ Cr',
-        period: 'FY24',
-        source: 'Official Exchange Portal',
-        isReported: false,
-        reportingNote: 'Awaiting primary audited filing extraction.',
-      },
-      {
-        key: 'operating_margin',
-        name: 'Operating Margin',
-        value: null,
-        formattedValue: 'Not Ingested in Offline Registry',
-        units: '%',
-        period: 'FY24',
-        source: 'Official Exchange Portal',
-        isReported: false,
-      },
-      {
-        key: 'debt_to_equity',
-        name: 'Debt-to-Equity Ratio',
-        value: null,
-        formattedValue: 'Not Ingested in Offline Registry',
-        units: 'Ratio',
-        period: 'FY24',
-        source: 'Official Exchange Portal',
-        isReported: false,
-      },
-    ],
-    bullCase: [
-      {
-        id: `unindexed-bull-${ticker}`,
-        title: 'Analytical Thesis Requires Verified Filing Ingestion',
-        thesis:
-          'FINN requires audited statutory disclosures before generating investment hypotheses to maintain research integrity.',
-        evidence: `Direct company disclosures can be inspected via official NSE India filings for ${ticker}.`,
-        sourceRef: 'NSE Disclosures Framework',
-        category: 'market_position',
-      },
-    ],
-    bearCase: [
-      {
-        id: `unindexed-bear-${ticker}`,
-        title: 'Data Ingestion & Verification Notice',
-        thesis:
-          'Unindexed equities require independent manual review of auditor notes, contingent liabilities, and related-party transactions.',
-        evidence: 'Examine statutory auditor reports on the BSE/NSE exchange filing directories.',
-        sourceRef: 'SEBI LODR Regulatory Compliance',
-        severity: 'HIGH',
-        category: 'regulatory',
-      },
-    ],
-    sources: [
-      {
-        id: `src-nse-${ticker}`,
-        title: `NSE India Live Equity Portal: ${ticker}`,
-        publisher: 'National Stock Exchange of India (NSE)',
-        publishDate: today,
-        url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(ticker)}`,
-        type: 'REGULATORY_PORTAL',
-        description:
-          'Official National Stock Exchange equity quote, real-time trading metrics, corporate announcements, and shareholding pattern.',
-      },
-      {
-        id: `src-bse-${ticker}`,
-        title: `BSE India Corporate Filings Portal`,
-        publisher: 'Bombay Stock Exchange (BSE)',
-        publishDate: today,
-        url: 'https://www.bseindia.com/corporates/ann.html',
-        type: 'PRIMARY_FILING',
-        description:
-          'Official BSE regulatory filings, board meeting outcomes, and Regulation 33 quarterly earnings statements.',
-      },
-      {
-        id: `src-screener-${ticker}`,
-        title: `Screener.in Consolidated Statement: ${ticker}`,
-        publisher: 'Screener Financial Research',
-        publishDate: today,
-        url: `https://www.screener.in/company/${encodeURIComponent(ticker)}/`,
-        type: 'SECONDARY_ANALYSIS',
-        description: 'Consolidated historical financial statements, peer comparisons, and quarterly trends.',
-      },
-    ],
+      'Security identity verified against local NSE master register. Audited corporate filing extraction and thesis have not been ingested for this equity.',
+    masterSecurityName: companyName,
+    masterIsin: isin,
+    financialSnapshot: createUnavailableFinancialMetrics(ticker),
+    externalLookupLinks: createStandardLookupLinks(ticker, true),
   };
+}
+
+/**
+ * Builds an honest report for an arbitrary ticker whose identity cannot be verified.
+ * Strict Integrity: No company name, no sector, no business description, no fake bull/bear case.
+ */
+function createUnverifiedIdentityReport(ticker: string): ResearchReport {
+  return {
+    ticker,
+    hasCuratedCoverage: false,
+    identityStatus: 'IDENTITY_NOT_VERIFIED',
+    identityMessage:
+      'This symbol passes format validation, but FINN has not verified that it corresponds to an NSE-listed security.',
+    provenance: 'IDENTITY_NOT_VERIFIED',
+    provenanceLabel: 'IDENTITY NOT VERIFIED',
+    provenanceNote:
+      'Format validation passed. No matching security found in the local exchange master register or research dataset.',
+    financialSnapshot: createUnavailableFinancialMetrics(ticker),
+    externalLookupLinks: createStandardLookupLinks(ticker, false),
+  };
+}
+
+/**
+ * Standard uningested financial metrics cards.
+ * Zero fabricated numbers or misleading reporting period claims.
+ */
+function createUnavailableFinancialMetrics(ticker: string): FinancialMetric[] {
+  return [
+    {
+      key: 'revenue',
+      name: 'Consolidated Revenue',
+      value: null,
+      formattedValue: '—',
+      units: '₹ Cr',
+      period: 'Not Ingested',
+      source: 'Not Ingested in Offline Dataset',
+      status: 'METRIC_NOT_INGESTED',
+      reportingNote: `Filing data for ${ticker} is not indexed in the offline research repository.`,
+    },
+    {
+      key: 'net_profit',
+      name: 'Profit / Loss After Tax (PAT)',
+      value: null,
+      formattedValue: '—',
+      units: '₹ Cr',
+      period: 'Not Ingested',
+      source: 'Not Ingested in Offline Dataset',
+      status: 'METRIC_NOT_INGESTED',
+      reportingNote: 'Direct exchange query required for audited statutory figures.',
+    },
+    {
+      key: 'operating_margin',
+      name: 'Operating Margin',
+      value: null,
+      formattedValue: '—',
+      units: '%',
+      period: 'Not Ingested',
+      source: 'Not Ingested in Offline Dataset',
+      status: 'METRIC_NOT_INGESTED',
+    },
+    {
+      key: 'debt_to_equity',
+      name: 'Debt-to-Equity Ratio',
+      value: null,
+      formattedValue: '—',
+      units: 'Ratio',
+      period: 'Not Ingested',
+      source: 'Not Ingested in Offline Dataset',
+      status: 'METRIC_NOT_INGESTED',
+    },
+  ];
+}
+
+/**
+ * External verification and lookup options.
+ * Clearly labeled as lookup links, NOT as sources already retrieved by FINN.
+ */
+function createStandardLookupLinks(ticker: string, isMasterKnown: boolean): ExternalLookupLink[] {
+  return [
+    {
+      id: `lookup-nse-${ticker}`,
+      title: 'National Stock Exchange (NSE India)',
+      label: `Query Symbol '${ticker}' on NSE`,
+      url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(ticker)}`,
+      purpose: isMasterKnown
+        ? 'Direct exchange query — verify real-time price quotation, volume, and Regulation 33 announcements.'
+        : 'External verification option — check if this symbol exists as an actively traded security on NSE.',
+    },
+    {
+      id: `lookup-bse-${ticker}`,
+      title: 'Bombay Stock Exchange (BSE India)',
+      label: 'Search Security on BSE India',
+      url: 'https://www.bseindia.com/corporates/ann.html',
+      purpose:
+        'External verification option — search corporate announcements, financial statements, and board meeting notices.',
+    },
+    {
+      id: `lookup-screener-${ticker}`,
+      title: 'Screener Financial Research',
+      label: `Search Consolidated Financials for '${ticker}'`,
+      url: `https://www.screener.in/company/${encodeURIComponent(ticker)}/`,
+      purpose:
+        'External verification option — inspect historical consolidated balance sheets and profit & loss statements.',
+    },
+  ];
 }
