@@ -12,12 +12,12 @@ export interface TickerValidationResult {
 
 export type IdentityVerificationStatus =
   | 'VERIFIED_CURATED_DOSSIER'
-  | 'SYMBOL_FOUND_IN_NSE_MASTER'
+  | 'SYMBOL_FOUND_IN_LOCAL_REGISTRY'
   | 'IDENTITY_NOT_VERIFIED';
 
 export type ResearchProvenance =
   | 'CURATED_FILING_DATA'
-  | 'SYMBOL_FOUND_IN_NSE_MASTER'
+  | 'SYMBOL_FOUND_IN_LOCAL_REGISTRY'
   | 'IDENTITY_NOT_VERIFIED'
   | 'DEMO_DATA';
 
@@ -47,7 +47,8 @@ export interface FinancialMetric {
   formattedValue: string;
   units: string;
   period: string; // e.g. "FY24 Audited", "Not Ingested"
-  source: string; // e.g. "Audited Annual Report FY24", "Not Ingested in Offline Dataset"
+  source: string; // e.g. "Audited Financial Statements FY24 Note 22"
+  sourceId?: string; // Maps to an entry in ResearchSource[]
   status: MetricStatus;
   reportingNote?: string;
 }
@@ -57,7 +58,8 @@ export interface BullCaseItem {
   title: string;
   thesis: string;
   evidence: string;
-  sourceRef: string;
+  sourceId: string; // Maps to an entry in ResearchSource[]
+  sourceDetail?: string; // Specific section, page, or table reference
   category: 'market_position' | 'revenue_growth' | 'margin_expansion' | 'capital_allocation' | 'moat';
 }
 
@@ -66,7 +68,8 @@ export interface BearCaseItem {
   title: string;
   thesis: string;
   evidence: string;
-  sourceRef: string;
+  sourceId: string; // Maps to an entry in ResearchSource[]
+  sourceDetail?: string; // Specific note, section, or risk factor reference
   severity: 'HIGH' | 'MEDIUM' | 'MONITOR';
   category:
     | 'regulatory'
@@ -110,12 +113,16 @@ export interface ResearchReport {
   provenance: ResearchProvenance;
   provenanceLabel: string;
   provenanceNote: string;
-  lastRetrieved?: string;
   hasCuratedCoverage: boolean;
 
-  // Verified master attributes (if found in master)
-  masterSecurityName?: string;
-  masterIsin?: string;
+  // Accurate filing and ingestion period semantics (no false current-date retrieval claims)
+  filingPeriod?: string; // e.g. "FY24 Audited (12M Ended March 31, 2024)"
+  dataAsOf?: string;     // e.g. "2024-07-26" (official filing / release date)
+  lastIngested?: string; // e.g. "2024-11-01" (offline dataset compilation date)
+
+  // Local registry attributes (if symbol exists in FINN's local list)
+  localRegistrySecurityName?: string;
+  localRegistryIsin?: string;
 
   // Only present if hasCuratedCoverage === true
   companyOverview?: CompanyOverview;

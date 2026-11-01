@@ -6,7 +6,7 @@ import {
 } from '../types/research';
 import {
   VERIFIED_RESEARCH_REGISTRY,
-  LOCAL_NSE_MASTER_REGISTRY,
+  LOCAL_VERIFIED_SYMBOL_REGISTRY,
 } from '../data/researchData';
 
 /**
@@ -74,8 +74,8 @@ export const EXAMPLE_TICKERS = [
  * Executes a research workflow for an arbitrary NSE ticker with strict data integrity:
  *
  * Stage 1: Ticker format validation (syntax only; does not imply exchange listing).
- * Stage 2: Check for Curated Research Dossier (pre-ingested audited FY24/Q2 FY25 filings & thesis).
- * Stage 3: Check Local NSE Equity Master (symbol identity confirmed, but research not indexed).
+ * Stage 2: Check for Curated Research Dossier (pre-ingested audited filings & thesis).
+ * Stage 3: Check Local Verified Symbol Registry (symbol exists in FINN's local list, no live exchange lookup).
  * Stage 4: Unverified fallback (format valid, but identity NOT verified; no fabricated data).
  */
 export async function fetchCompanyResearch(tickerInput: string): Promise<ResearchReport> {
@@ -89,30 +89,28 @@ export async function fetchCompanyResearch(tickerInput: string): Promise<Researc
   // Add realistic network latency to simulate asynchronous resolution
   await new Promise((resolve) => setTimeout(resolve, 380));
 
-  // Case 1: Curated research dossier with pre-ingested audited filings
+  // Case 1: Curated research dossier with pre-ingested audited filings (static snapshot; do NOT assign today's date)
   if (VERIFIED_RESEARCH_REGISTRY[ticker]) {
-    const report = VERIFIED_RESEARCH_REGISTRY[ticker];
     return {
-      ...report,
-      lastRetrieved: new Date().toISOString().split('T')[0],
+      ...VERIFIED_RESEARCH_REGISTRY[ticker],
     };
   }
 
-  // Case 2: Symbol confirmed in Local NSE Equity Master, but filings not yet indexed
-  if (LOCAL_NSE_MASTER_REGISTRY[ticker]) {
-    const masterEntry = LOCAL_NSE_MASTER_REGISTRY[ticker];
-    return createMasterIndexedReport(ticker, masterEntry.companyName, masterEntry.isin);
+  // Case 2: Symbol confirmed in FINN's Local Verified Symbol Registry, but full filings unindexed
+  if (LOCAL_VERIFIED_SYMBOL_REGISTRY[ticker]) {
+    const entry = LOCAL_VERIFIED_SYMBOL_REGISTRY[ticker];
+    return createLocalRegistryReport(ticker, entry.companyName, entry.isin);
   }
 
-  // Case 3: Arbitrary format-valid ticker NOT found in master or curated registry (e.g. CGFSDYMGUJHVGF)
+  // Case 3: Arbitrary format-valid ticker NOT found in local list or curated registry (e.g. CGFSDYMGUJHVGF)
   return createUnverifiedIdentityReport(ticker);
 }
 
 /**
- * Builds an unindexed report for a symbol confirmed in the local NSE Equity Master.
- * Shows verified identity, but explicitly refuses to fabricate filings, descriptions, or thesis.
+ * Builds an unindexed report for a symbol found in FINN's locally maintained list.
+ * Explains that no live exchange query occurred and avoids fabricating filings or thesis.
  */
-function createMasterIndexedReport(
+function createLocalRegistryReport(
   ticker: string,
   companyName: string,
   isin: string
@@ -120,14 +118,14 @@ function createMasterIndexedReport(
   return {
     ticker,
     hasCuratedCoverage: false,
-    identityStatus: 'SYMBOL_FOUND_IN_NSE_MASTER',
-    identityMessage: `Symbol matches an active security in the local NSE Equity Master (${companyName} • ISIN: ${isin}). However, audited financial statements and analytical research are not currently indexed in FINN's offline dataset.`,
-    provenance: 'SYMBOL_FOUND_IN_NSE_MASTER',
-    provenanceLabel: 'SYMBOL FOUND IN NSE MASTER',
+    identityStatus: 'SYMBOL_FOUND_IN_LOCAL_REGISTRY',
+    identityMessage: `This symbol exists in FINN's locally maintained symbol list (${companyName} • ISIN: ${isin}). FINN has not performed a live exchange lookup.`,
+    provenance: 'SYMBOL_FOUND_IN_LOCAL_REGISTRY',
+    provenanceLabel: 'FOUND IN FINN LOCAL SYMBOL REGISTRY',
     provenanceNote:
-      'Security identity verified against local NSE master register. Audited corporate filing extraction and thesis have not been ingested for this equity.',
-    masterSecurityName: companyName,
-    masterIsin: isin,
+      "Symbol exists in FINN's locally maintained symbol list. FINN has not performed a live exchange lookup; full company filings are not indexed.",
+    localRegistrySecurityName: companyName,
+    localRegistryIsin: isin,
     financialSnapshot: createUnavailableFinancialMetrics(ticker),
     externalLookupLinks: createStandardLookupLinks(ticker, true),
   };
@@ -147,7 +145,7 @@ function createUnverifiedIdentityReport(ticker: string): ResearchReport {
     provenance: 'IDENTITY_NOT_VERIFIED',
     provenanceLabel: 'IDENTITY NOT VERIFIED',
     provenanceNote:
-      'Format validation passed. No matching security found in the local exchange master register or research dataset.',
+      "Format validation passed only. Symbol not found in FINN's local symbol list or research dataset.",
     financialSnapshot: createUnavailableFinancialMetrics(ticker),
     externalLookupLinks: createStandardLookupLinks(ticker, false),
   };
@@ -208,16 +206,16 @@ function createUnavailableFinancialMetrics(ticker: string): FinancialMetric[] {
  * External verification and lookup options.
  * Clearly labeled as lookup links, NOT as sources already retrieved by FINN.
  */
-function createStandardLookupLinks(ticker: string, isMasterKnown: boolean): ExternalLookupLink[] {
+function createStandardLookupLinks(ticker: string, isLocalKnown: boolean): ExternalLookupLink[] {
   return [
     {
       id: `lookup-nse-${ticker}`,
       title: 'National Stock Exchange (NSE India)',
       label: `Query Symbol '${ticker}' on NSE`,
       url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(ticker)}`,
-      purpose: isMasterKnown
-        ? 'Direct exchange query — verify real-time price quotation, volume, and Regulation 33 announcements.'
-        : 'External verification option — check if this symbol exists as an actively traded security on NSE.',
+      purpose: isLocalKnown
+        ? 'External lookup option — verify live order book, circuit filters, and Regulation 33 filings on NSE.'
+        : 'External lookup option — check whether this symbol exists as an actively traded security on NSE.',
     },
     {
       id: `lookup-bse-${ticker}`,
@@ -225,7 +223,7 @@ function createStandardLookupLinks(ticker: string, isMasterKnown: boolean): Exte
       label: 'Search Security on BSE India',
       url: 'https://www.bseindia.com/corporates/ann.html',
       purpose:
-        'External verification option — search corporate announcements, financial statements, and board meeting notices.',
+        'External lookup option — search statutory corporate announcements, financial statements, and board meeting notices.',
     },
     {
       id: `lookup-screener-${ticker}`,
@@ -233,7 +231,7 @@ function createStandardLookupLinks(ticker: string, isMasterKnown: boolean): Exte
       label: `Search Consolidated Financials for '${ticker}'`,
       url: `https://www.screener.in/company/${encodeURIComponent(ticker)}/`,
       purpose:
-        'External verification option — inspect historical consolidated balance sheets and profit & loss statements.',
+        'External lookup option — inspect historical consolidated balance sheets and profit & loss statements.',
     },
   ];
 }

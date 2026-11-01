@@ -69,7 +69,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
       const errText =
         err instanceof Error
           ? err.message
-          : 'Unable to retrieve company intelligence. Please verify the ticker symbol.';
+          : 'Unable to evaluate ticker symbol. Please try again.';
       setErrorMessage(errText);
     }
   };
@@ -172,7 +172,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                 {status === 'loading' ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span className="hidden sm:inline">Validating...</span>
+                    <span className="hidden sm:inline">Evaluating...</span>
                   </>
                 ) : (
                   <span>Research</span>
@@ -225,7 +225,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-            <strong className="font-semibold">SYMBOL IN NSE MASTER</strong>
+            <strong className="font-semibold">LOCAL SYMBOL REGISTRY</strong>
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-400"></span>
@@ -247,7 +247,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
               Evaluating Ticker Format and Security Identity for {tickerInput}
             </h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Checking local exchange master register, audited corporate filing extracts, and regulatory disclosures...
+              Checking FINN local symbol registry and pre-ingested corporate filings...
             </p>
           </div>
         </div>
@@ -291,7 +291,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
           </div>
           <h3 className="text-sm font-semibold text-white">No Security Selected</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Search any NSE equity ticker above or click an example company to inspect audited filing disclosures or launch external verification queries.
+            Search any NSE equity ticker above or click an example company to inspect pre-ingested filing disclosures or launch external verification queries.
           </p>
         </div>
       )}
@@ -308,7 +308,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                 className={`font-mono text-[11px] px-2 py-0.5 rounded uppercase font-bold border ${
                   report.provenance === 'CURATED_FILING_DATA'
                     ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
-                    : report.provenance === 'SYMBOL_FOUND_IN_NSE_MASTER'
+                    : report.provenance === 'SYMBOL_FOUND_IN_LOCAL_REGISTRY'
                     ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                     : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
                 }`}
@@ -319,10 +319,19 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                 {report.provenanceNote}
               </span>
             </div>
-            {report.lastRetrieved && (
-              <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                Retrieved: {report.lastRetrieved}
-              </span>
+
+            {/* Accurate Filing / Dataset Period Semantics (Never show fake 'Retrieved: Today') */}
+            {report.filingPeriod && (
+              <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 shrink-0">
+                <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  {report.filingPeriod}
+                </span>
+                {report.dataAsOf && (
+                  <span className="hidden lg:inline text-slate-400">
+                    Filing Date: {report.dataAsOf}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -408,49 +417,64 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {report.financialSnapshot.map((metric) => (
-                    <div
-                      key={metric.key}
-                      className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 flex flex-col justify-between space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs text-slate-400 font-medium">
-                          {metric.name}
-                        </span>
-                        {metric.status === 'CURATED_FILING_DATA' ? (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0 font-semibold">
-                            CURATED FILING DATA
+                  {report.financialSnapshot.map((metric) => {
+                    const sourceObj = report.sources?.find((s) => s.id === metric.sourceId);
+                    return (
+                      <div
+                        key={metric.key}
+                        className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 flex flex-col justify-between space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs text-slate-400 font-medium">
+                            {metric.name}
                           </span>
-                        ) : metric.status === 'EXEMPT_NOT_APPLICABLE' ? (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0 font-semibold">
-                            EXEMPT / BANKING
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0 font-semibold">
-                            NOT INGESTED
-                          </span>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-base sm:text-lg font-bold font-mono text-white">
-                          {metric.formattedValue}
+                          {metric.status === 'CURATED_FILING_DATA' ? (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0 font-semibold">
+                              CURATED FILING DATA
+                            </span>
+                          ) : metric.status === 'EXEMPT_NOT_APPLICABLE' ? (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0 font-semibold">
+                              EXEMPT / BANKING
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0 font-semibold">
+                              NOT INGESTED
+                            </span>
+                          )}
                         </div>
-                        {metric.reportingNote && (
-                          <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                            {metric.reportingNote}
-                          </p>
-                        )}
-                      </div>
 
-                      <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                        <span>{metric.period}</span>
-                        <span className="truncate max-w-[140px]" title={metric.source}>
-                          {metric.source}
-                        </span>
+                        <div>
+                          <div className="text-base sm:text-lg font-bold font-mono text-white">
+                            {metric.formattedValue}
+                          </div>
+                          {metric.reportingNote && (
+                            <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                              {metric.reportingNote}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                          <span>{metric.period}</span>
+                          {sourceObj ? (
+                            <a
+                              href={sourceObj.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="truncate max-w-[140px] text-indigo-400 hover:text-indigo-300 transition"
+                              title={`${metric.source} (Source: ${sourceObj.title})`}
+                            >
+                              {metric.source}
+                            </a>
+                          ) : (
+                            <span className="truncate max-w-[140px]" title={metric.source}>
+                              {metric.source}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
@@ -472,28 +496,49 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                      {report.bullCase.map((bull) => (
-                        <div
-                          key={bull.id}
-                          className="p-3.5 rounded-lg bg-slate-950/60 border border-emerald-500/20 space-y-2"
-                        >
-                          <h5 className="text-xs sm:text-sm font-semibold text-emerald-300">
-                            {bull.title}
-                          </h5>
-                          <p className="text-xs text-slate-300 leading-relaxed">
-                            {bull.thesis}
-                          </p>
-                          <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-                            <div>
-                              <strong className="text-slate-400">Filed Evidence: </strong>
-                              <span className="text-slate-300">{bull.evidence}</span>
-                            </div>
-                            <div className="text-[10px] font-mono text-slate-400">
-                              Ref: {bull.sourceRef}
+                      {report.bullCase.map((bull) => {
+                        const linkedSource = report.sources?.find((s) => s.id === bull.sourceId);
+                        return (
+                          <div
+                            key={bull.id}
+                            className="p-3.5 rounded-lg bg-slate-950/60 border border-emerald-500/20 space-y-2"
+                          >
+                            <h5 className="text-xs sm:text-sm font-semibold text-emerald-300">
+                              {bull.title}
+                            </h5>
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                              {bull.thesis}
+                            </p>
+                            <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                              <div>
+                                <strong className="text-slate-400">Filed Evidence: </strong>
+                                <span className="text-slate-300">{bull.evidence}</span>
+                              </div>
+                              <div className="text-[10px] font-mono flex items-center justify-between pt-0.5">
+                                {linkedSource ? (
+                                  <a
+                                    href={linkedSource.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-400 hover:text-indigo-300 transition truncate max-w-[280px] inline-flex items-center gap-1"
+                                    title={linkedSource.title}
+                                  >
+                                    <span>Source: {linkedSource.title}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400">Source ID: {bull.sourceId}</span>
+                                )}
+                                {bull.sourceDetail && (
+                                  <span className="text-slate-400 italic shrink-0">
+                                    {bull.sourceDetail}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </section>
                 )}
@@ -514,41 +559,62 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                      {report.bearCase.map((bear) => (
-                        <div
-                          key={bear.id}
-                          className="p-3.5 rounded-lg bg-slate-950/60 border border-rose-500/20 space-y-2"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <h5 className="text-xs sm:text-sm font-semibold text-rose-300">
-                              {bear.title}
-                            </h5>
-                            <span
-                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold shrink-0 ${
-                                bear.severity === 'HIGH'
-                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                  : bear.severity === 'MEDIUM'
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-slate-800 text-slate-300 border border-slate-700'
-                              }`}
-                            >
-                              {bear.severity} RISK
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-300 leading-relaxed">
-                            {bear.thesis}
-                          </p>
-                          <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-                            <div>
-                              <strong className="text-slate-400">Documented Evidence: </strong>
-                              <span className="text-slate-300">{bear.evidence}</span>
+                      {report.bearCase.map((bear) => {
+                        const linkedSource = report.sources?.find((s) => s.id === bear.sourceId);
+                        return (
+                          <div
+                            key={bear.id}
+                            className="p-3.5 rounded-lg bg-slate-950/60 border border-rose-500/20 space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <h5 className="text-xs sm:text-sm font-semibold text-rose-300">
+                                {bear.title}
+                              </h5>
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold shrink-0 ${
+                                  bear.severity === 'HIGH'
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                    : bear.severity === 'MEDIUM'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                }`}
+                              >
+                                {bear.severity} RISK
+                              </span>
                             </div>
-                            <div className="text-[10px] font-mono text-slate-400">
-                              Ref: {bear.sourceRef}
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                              {bear.thesis}
+                            </p>
+                            <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                              <div>
+                                <strong className="text-slate-400">Documented Evidence: </strong>
+                                <span className="text-slate-300">{bear.evidence}</span>
+                              </div>
+                              <div className="text-[10px] font-mono flex items-center justify-between pt-0.5">
+                                {linkedSource ? (
+                                  <a
+                                    href={linkedSource.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-400 hover:text-indigo-300 transition truncate max-w-[280px] inline-flex items-center gap-1"
+                                    title={linkedSource.title}
+                                  >
+                                    <span>Source: {linkedSource.title}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400">Source ID: {bear.sourceId}</span>
+                                )}
+                                {bear.sourceDetail && (
+                                  <span className="text-slate-400 italic shrink-0">
+                                    {bear.sourceDetail}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </section>
                 )}
@@ -615,7 +681,7 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-medium text-[11px] transition"
                           >
-                            <span>Open Filing</span>
+                            <span>Open Repository</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         </div>
@@ -651,10 +717,10 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
 
                   {/* Identity Verification Badge */}
                   <div className="shrink-0">
-                    {report.identityStatus === 'SYMBOL_FOUND_IN_NSE_MASTER' ? (
+                    {report.identityStatus === 'SYMBOL_FOUND_IN_LOCAL_REGISTRY' ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-                        <span>SYMBOL FOUND IN NSE MASTER</span>
+                        <span>FOUND IN FINN LOCAL SYMBOL REGISTRY</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 text-xs font-mono font-bold">
@@ -677,9 +743,9 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                         Format Valid
                       </span>
                     </div>
-                    {report.masterSecurityName && (
+                    {report.localRegistrySecurityName && (
                       <p className="text-[11px] text-amber-300 truncate font-sans">
-                        Master: {report.masterSecurityName}
+                        Local List: {report.localRegistrySecurityName}
                       </p>
                     )}
                   </div>
@@ -689,9 +755,9 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                       Identity Verification Status
                     </span>
                     <div className="text-xs text-slate-200 font-medium">
-                      {report.identityStatus === 'SYMBOL_FOUND_IN_NSE_MASTER'
-                        ? 'Confirmed in Exchange Register'
-                        : 'No Authoritative Match Found'}
+                      {report.identityStatus === 'SYMBOL_FOUND_IN_LOCAL_REGISTRY'
+                        ? 'Found in FINN Local Symbol List'
+                        : 'No Match in Local Registry'}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-tight">
                       {report.identityMessage}

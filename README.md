@@ -19,28 +19,31 @@ A high-performance investor intelligence interface for Indian equity markets (NS
 - **Monitored Equities**: 18 major NSE equities spanning 7 sectors.
 - **Derived Alerts**: Dynamic price movement (±2.0%) and volume surges (≥1.5x) derived from configurable thresholds.
 - **Strict Provenance**: Conspicuously labeled with DEMO simulated indicators.
-- **Market Breadth**: Real-time advance/decline distribution and volume ratio tracking.
+- **Market Breadth**: Advance/decline distribution and 20-session baseline volume tracking.
 - **Responsive Layout**: Dual-column workspace on desktop, fluid tabbed layout on mobile devices.
 
 ### 2. Research Copilot
-- **Arbitrary Ticker Ingestion**: Evaluates any valid NSE equity symbol (e.g. `ZOMATO`, `BHARTIARTL`, `RELIANCE`, `TCS`, `HDFCBANK`, `SWIGGY`, `TRENT`).
+- **Arbitrary Ticker Ingestion**: Evaluates any valid NSE equity symbol (e.g. `ZOMATO`, `BHARTIARTL`, `RELIANCE`, `TCS`, `HDFCBANK`, `SWIGGY`, `TRENT`, `CGFSDYMGUJHVGF`).
 - **Input Validation**: Automatically trims whitespace, normalizes casing to uppercase, and rejects malformed characters.
-- **Company Overview**: Corporate profile, ISIN, CIN, sector, industry, and business description.
-- **Financial Snapshot**: Audited financial metrics (Revenue, PAT, Margins, Debt/Equity, Cash Reserves). Missing metrics (e.g., Banking Debt/Equity) are explicitly marked as `Not Reported` with explanatory regulatory context (e.g., CRAR).
-- **Bull Case & Catalysts**: Evidence-backed analytical hypotheses citing verified filings, distinct from audited facts.
-- **Bear Case & Risks**: Structured vulnerability analysis tagged with risk severity (`HIGH`, `MEDIUM`, `MONITOR`).
-- **Primary Source Citations**: Direct clickable URLs to official investor relations portals, NSE equity pages, and BSE Regulation 33 earnings filings.
-- **Unindexed Fallback**: For valid NSE tickers without offline ingested dossiers, provides transparent direct links to official NSE and BSE quote portals without fabricating data.
+- **Accurate Provenance & Scope**:
+  - `CURATED FILING DATA`: Offline pre-ingested snapshot from audited FY24 filings (e.g. `ZOMATO`, `RELIANCE`, `TCS`, `HDFCBANK`, `SWIGGY`, `BHARTIARTL`).
+  - `FOUND IN FINN LOCAL SYMBOL REGISTRY`: Matches FINN's finite local symbol list (e.g. `TRENT`, `BEL`, `PAYTM`, `ASIANPAINT`). FINN does not claim live exchange verification.
+  - `IDENTITY NOT VERIFIED`: Ticker format is syntactically valid, but identity is unconfirmed.
+  - `METRIC NOT INGESTED`: Unavailable financial metrics are explicitly marked as not ingested.
+  - `ANALYTICAL INTERPRETATION`: Reasoned investment theses grounded in cited evidence, distinctly separated from audited facts.
+- **Zero Fabrication**: No made-up company names, fake sectors, invented business descriptions, or speculative bull/bear arguments for unindexed tickers.
+- **Official Exchange Lookup Options**: Clear, clickable lookup links to official NSE India, BSE India, and Screener query pages.
 
 ---
 
 ## Data Source Strategy & Integrity
 
-| Layer | Source | Provenance Label | Fabrication Policy |
+| Layer | Source | Provenance Label | Scope & Limitations |
 | :--- | :--- | :--- | :--- |
-| **Dashboard** | 20-session deterministic simulation | `DEMO DATA` | Simulated for interface testing |
-| **Research (Indexed)** | Audited FY24 / Q2 FY25 Annual Reports & BSE Filings | `VERIFIED_FILING` | **Zero fabrication**; verified audited facts |
-| **Research (Unindexed)** | Primary NSE / BSE Exchange Portals | `UNINDEXED_EXCHANGE_LOOKUP` | Financials left blank / unindexed; direct exchange links provided |
+| **Dashboard** | 20-session deterministic simulation | `DEMO DATA` | Simulated observations for interface evaluation. Not live trading data. |
+| **Research (Curated)** | Audited FY24 Annual Reports & BSE/SEBI Filings | `CURATED FILING DATA` | Offline pre-ingested snapshot. Each metric and thesis links directly to a cited source. |
+| **Research (Local List)** | Finite local symbol list | `FOUND IN FINN LOCAL SYMBOL REGISTRY` | Symbol exists in FINN's local list; no live exchange lookup conducted. Full filings unindexed. |
+| **Research (Unverified)** | Arbitrary format-valid input | `IDENTITY NOT VERIFIED` | Ticker format valid only. External exchange query links provided. Zero data fabricated. |
 
 ---
 
