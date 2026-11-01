@@ -217,7 +217,7 @@ export function validateAnnouncementDataset(
       });
     }
 
-    // 3. All non-DEMO records have a source URL
+    // 3. Validate every non-DEMO source URL using the URL parser (must be valid, protocol must be https: or http:)
     if (!ann.isDemo) {
       if (!ann.source?.url || typeof ann.source.url !== 'string' || ann.source.url.trim() === '') {
         failures.push({
@@ -225,6 +225,23 @@ export function validateAnnouncementDataset(
           field: 'source.url',
           message: 'Non-DEMO record is missing a valid source URL',
         });
+      } else {
+        try {
+          const parsedUrl = new URL(ann.source.url);
+          if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+            failures.push({
+              id: ann.id,
+              field: 'source.url',
+              message: `Non-DEMO source URL must use 'https:' or 'http:' protocol; received '${parsedUrl.protocol}' for "${ann.source.url}"`,
+            });
+          }
+        } catch {
+          failures.push({
+            id: ann.id,
+            field: 'source.url',
+            message: `Malformed non-DEMO source URL could not be parsed: "${ann.source.url}"`,
+          });
+        }
       }
     }
 
@@ -284,14 +301,32 @@ export function validateAnnouncementDataset(
       }
     }
 
-    // 9. All publication dates parse to valid dates
-    const parsedTime = Date.parse(ann.publishedAt);
-    if (isNaN(parsedTime)) {
+    // 9. Validate publishedAt as a strict ISO 8601 date-time string
+    // Accepts formats like YYYY-MM-DDTHH:mm:ss, YYYY-MM-DDTHH:mm:ssZ, or with timezone offset ±HH:mm
+    const ISO_8601_DATETIME_REGEX =
+      /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/;
+
+    if (!ann.publishedAt || typeof ann.publishedAt !== 'string') {
       failures.push({
         id: ann.id,
         field: 'publishedAt',
-        message: `Invalid publication date: "${ann.publishedAt}"`,
+        message: 'Missing or non-string publication date',
       });
+    } else if (!ISO_8601_DATETIME_REGEX.test(ann.publishedAt)) {
+      failures.push({
+        id: ann.id,
+        field: 'publishedAt',
+        message: `Value "${ann.publishedAt}" is not a valid ISO 8601 date-time string (expected YYYY-MM-DDTHH:mm:ss with optional offset)`,
+      });
+    } else {
+      const parsedTime = Date.parse(ann.publishedAt);
+      if (isNaN(parsedTime)) {
+        failures.push({
+          id: ann.id,
+          field: 'publishedAt',
+          message: `ISO 8601 date-time string "${ann.publishedAt}" could not be parsed to a valid calendar date`,
+        });
+      }
     }
 
     // 10. No legacy synthetic exchange filing identifiers remain
