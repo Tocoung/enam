@@ -1,16 +1,20 @@
 import React from 'react';
-import { Sliders, ShieldCheck } from './icons';
+import { Sliders, ShieldCheck, LayoutDashboard, Sparkles } from './icons';
 
 interface HeaderProps {
   onOpenSettings: () => void;
   activeThresholdsLabel: string;
   stocksCount: number;
+  activePage: 'dashboard' | 'research';
+  onSelectPage: (page: 'dashboard' | 'research') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   activeThresholdsLabel,
   stocksCount,
+  activePage,
+  onSelectPage,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80">
@@ -25,17 +29,23 @@ export const Header: React.FC<HeaderProps> = ({
         </p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         {/* Brand & Market Status */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-extrabold text-sm sm:text-base tracking-tighter shadow-lg shadow-indigo-500/20 ring-1 ring-white/10 shrink-0">
+          <div
+            onClick={() => onSelectPage('dashboard')}
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-extrabold text-sm sm:text-base tracking-tighter shadow-lg shadow-indigo-500/20 ring-1 ring-white/10 shrink-0 cursor-pointer"
+          >
             F
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold tracking-tight text-white font-sans">
+              <button
+                onClick={() => onSelectPage('dashboard')}
+                className="text-base font-bold tracking-tight text-white font-sans hover:text-indigo-300 transition text-left"
+              >
                 FINN
-              </span>
+              </button>
               <span className="text-slate-500 text-xs hidden sm:inline">|</span>
               <span className="text-xs font-medium text-slate-300 hidden sm:inline truncate">
                 Institutional Investor Intelligence
@@ -47,14 +57,46 @@ export const Header: React.FC<HeaderProps> = ({
                 NSE Simulated
               </span>
               <span>•</span>
-              <span className="font-mono text-slate-400 whitespace-nowrap">{stocksCount} Monitored</span>
+              <span className="font-mono text-slate-400 whitespace-nowrap">
+                {stocksCount} Monitored
+              </span>
             </div>
           </div>
         </div>
 
+        {/* Primary Page Navigation Tabs */}
+        <nav className="flex items-center p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium">
+          <button
+            onClick={() => onSelectPage('dashboard')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+              activePage === 'dashboard'
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => onSelectPage('research')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+              activePage === 'research'
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Research</span>
+            <span className="hidden sm:inline text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+              NSE
+            </span>
+          </button>
+        </nav>
+
         {/* Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
             <span>Strict Provenance: DEMO</span>
           </div>
