@@ -1,12 +1,12 @@
 import React from 'react';
-import { Sliders, ShieldCheck, LayoutDashboard, Sparkles } from './icons';
+import { Sliders, ShieldCheck, LayoutDashboard, Sparkles, Newspaper } from './icons';
 
 interface HeaderProps {
   onOpenSettings: () => void;
   activeThresholdsLabel: string;
   stocksCount: number;
-  activePage: 'dashboard' | 'research';
-  onSelectPage: (page: 'dashboard' | 'research') => void;
+  activePage: 'dashboard' | 'research' | 'announcements';
+  onSelectPage: (page: 'dashboard' | 'research' | 'announcements') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -64,8 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Primary Page Navigation Tabs */}
-        <nav className="flex items-center p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium">
+        {/* Primary Page Navigation Tabs (Desktop / Tablet) */}
+        <nav className="hidden sm:flex items-center p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium">
           <button
             onClick={() => onSelectPage('dashboard')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
@@ -90,6 +90,21 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Research</span>
             <span className="hidden sm:inline text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
               NSE
+            </span>
+          </button>
+
+          <button
+            onClick={() => onSelectPage('announcements')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+              activePage === 'announcements'
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Newspaper className="w-3.5 h-3.5" />
+            <span>Announcements</span>
+            <span className="hidden sm:inline text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+              LODR
             </span>
           </button>
         </nav>

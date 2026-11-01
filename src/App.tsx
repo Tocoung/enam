@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles } from './components/icons';
+import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles, Newspaper } from './components/icons';
 import { PORTFOLIO_RAW_DATA, DEFAULT_THRESHOLDS } from './data/portfolioData';
 import {
   computeStockMetrics,
@@ -15,14 +15,18 @@ import { AlertFeed } from './components/AlertFeed';
 import { Watchlist } from './components/Watchlist';
 import { ThresholdSettingsModal } from './components/ThresholdSettingsModal';
 import { ResearchCopilot } from './components/ResearchCopilot';
+import { AnnouncementFeed } from './components/AnnouncementFeed';
 
 export default function App() {
-  // Navigation state between Dashboard and Research Copilot (supports URL parameters for deep-linking)
-  const [activePage, setActivePage] = useState<'dashboard' | 'research'>(() => {
+  // Navigation state between Dashboard, Research Copilot, and Announcements
+  const [activePage, setActivePage] = useState<'dashboard' | 'research' | 'announcements'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('ticker') || params.get('page') === 'research') {
         return 'research';
+      }
+      if (params.get('page') === 'announcements') {
+        return 'announcements';
       }
     }
     return 'dashboard';
@@ -156,13 +160,16 @@ export default function App() {
               </section>
             </div>
           </>
-        ) : (
+        ) : activePage === 'research' ? (
           /* Research Copilot Page */
           <ResearchCopilot
             initialTicker={researchTicker}
             onClearInitialTicker={() => setResearchTicker(undefined)}
             onBackToDashboard={() => setActivePage('dashboard')}
           />
+        ) : (
+          /* Corporate Announcement Intelligence Feed */
+          <AnnouncementFeed onOpenResearch={handleOpenResearch} />
         )}
       </main>
 
@@ -177,20 +184,20 @@ export default function App() {
       />
 
       {/* 5. Mobile Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-4 py-2 flex items-center justify-around">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-1 py-2 grid grid-cols-5 items-center justify-items-center">
         <button
           onClick={() => {
             setActivePage('dashboard');
             setMobileTab('watchlist');
           }}
-          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
+          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'dashboard' && mobileTab === 'watchlist'
               ? 'text-indigo-400 font-semibold'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <LayoutDashboard className="w-4 h-4" />
-          <span>Dashboard</span>
+          <span className="truncate">Dashboard</span>
         </button>
 
         <button
@@ -198,16 +205,16 @@ export default function App() {
             setActivePage('dashboard');
             setMobileTab('alerts');
           }}
-          className={`relative flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
+          className={`relative flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'dashboard' && mobileTab === 'alerts'
               ? 'text-indigo-400 font-semibold'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span>Alerts</span>
+          <span className="truncate">Alerts</span>
           {alerts.length > 0 && (
-            <span className="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold">
+            <span className="absolute -top-1 right-2 sm:right-4 px-1 py-0.2 rounded-full bg-rose-500 text-white text-[8px] font-mono font-bold leading-none">
               {alerts.length}
             </span>
           )}
@@ -215,22 +222,34 @@ export default function App() {
 
         <button
           onClick={() => setActivePage('research')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition-colors ${
+          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'research'
               ? 'text-indigo-400 font-semibold'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Research</span>
+          <span className="truncate">Research</span>
+        </button>
+
+        <button
+          onClick={() => setActivePage('announcements')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
+            activePage === 'announcements'
+              ? 'text-indigo-400 font-semibold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Newspaper className="w-4 h-4" />
+          <span className="truncate">Filings</span>
         </button>
 
         <button
           onClick={() => setIsSettingsOpen(true)}
-          className="flex flex-col items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition-colors"
+          className="flex flex-col items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-colors w-full"
         >
           <SlidersHorizontal className="w-4 h-4" />
-          <span>Thresholds</span>
+          <span className="truncate">Rules</span>
         </button>
       </nav>
     </div>

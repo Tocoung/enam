@@ -36,6 +36,17 @@ A high-performance investor intelligence interface for Indian equity markets (NS
 
 ---
 
+### 3. Corporate Announcement Intelligence Feed
+- **Materiality & Category Filtering**: Segmented into 5 regulatory categories (Financial Results, Orders & Contracts, Corporate Actions & Fundraising, Management & Governance, Regulatory & Legal).
+- **Objective Materiality Rubric**: Explicit criteria for `HIGH MATERIALITY` price-sensitive triggers (audited earnings, large capital raises >₹5,000 Cr, bonus issues, material litigation resolutions).
+- **Dual-Layer Provenance**:
+  - `VERIFIED EXCHANGE FILING`: Genuine statutory disclosures filed under SEBI (LODR) Regulations 2015 with primary links to BSE/NSE repositories.
+  - `DEMO ANNOUNCEMENT`: Conspicuously labelled synthetic market illustrations simulating broader sector activity across the monitored universe without inventing filing numbers or claiming exchange verification.
+- **Search & Multi-Criteria Sort**: Search across company names, tickers, sectors, and key terms; sort by publication date (newest/oldest) or materiality.
+- **Direct Research Deep-Links**: One-click transition from any announcement card directly into the company's Research Copilot dossier.
+
+---
+
 ## Data Source Strategy & Integrity
 
 | Layer | Source | Provenance Label | Scope & Limitations |
@@ -44,6 +55,8 @@ A high-performance investor intelligence interface for Indian equity markets (NS
 | **Research (Curated)** | Audited FY24 Annual Reports & BSE/SEBI Filings | `CURATED FILING DATA` | Offline pre-ingested snapshot. Each metric and thesis links directly to a cited source. |
 | **Research (Local List)** | Finite local symbol list | `FOUND IN FINN LOCAL SYMBOL REGISTRY` | Symbol exists in FINN's local list; no live exchange lookup conducted. Full filings unindexed. |
 | **Research (Unverified)** | Arbitrary format-valid input | `IDENTITY NOT VERIFIED` | Ticker format valid only. External exchange query links provided. Zero data fabricated. |
+| **Announcements (Verified)** | Primary BSE/NSE corporate disclosures | `VERIFIED EXCHANGE FILING` | Authentic historical filings submitted under SEBI LODR Regulations with official repository links. |
+| **Announcements (Demo)** | Illustrative synthetic simulations | `DEMO ANNOUNCEMENT` | Clearly labelled DEMO entries for UI testing. Links provide direct portal lookup without claiming live retrieval. |
 
 ---
 
