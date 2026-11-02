@@ -644,11 +644,11 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
         id: 'rel-bear-1',
         title: 'Global Petrochemical & Refining Crack Spread Headwinds',
         thesis:
-          'Global refining margins (GRMs) and polymer spreads face downward pressure from massive overseas chemical capacity additions.',
+          'Global refining margins (GRMs) and downstream petrochemical spreads face cyclical headwinds, directly impacting Oil-to-Chemicals (O2C) segment operating profitability.',
         evidence:
-          'Downstream chemical margins remained compressed through FY24 due to global oversupply and muted European manufacturing demand.',
+          'Management transcript highlights sharp transportation fuel crack declines alongside downstream petrochemical price reductions, softer domestic polymer and polyester demand, and O2C EBITDA weakness in Q2 FY25.',
         sourceId: 'rel-src-4',
-        sourceDetail: 'Q2 FY25 Financial Results Presentation — O2C Business Environment & Crack Spreads',
+        sourceDetail: 'Q2 FY25 Media & Analyst Call Transcript — O2C Fuel Cracks & Petrochemical Performance',
         severity: 'HIGH',
         category: 'margin_pressure',
       },
@@ -710,13 +710,13 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
       },
       {
         id: 'rel-src-4',
-        title: 'RIL Q2 FY2024-25 Financial Results Presentation & Earnings Webcast',
+        title: 'RIL Q2 FY2024-25 Media & Analyst Call Transcript',
         publisher: 'Reliance Industries Limited',
         publishDate: '2024-10-14',
-        url: 'https://www.ril.com/investors/financial-reporting',
-        type: 'EARNINGS_CALL_PRESENTATION',
+        url: 'https://www.ril.com/sites/default/files/2024-10/14102024-Q2-FY2024-25-Transcript.pdf',
+        type: 'EARNINGS_CALL_TRANSCRIPT',
         description:
-          'Official investor presentation and management webcast presentation for Q2 FY25 covering O2C market dynamics, global refining margins, and segment performance.',
+          'Official management transcript of Q2 FY2024-25 media and analyst call covering O2C fuel cracks, downstream petrochemical pricing, softer polymer/polyester demand, and segment EBITDA.',
       },
     ],
     externalLookupLinks: [
@@ -1093,24 +1093,24 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
       },
       {
         id: 'tcs-bull-3',
-        title: 'Generative AI Upskilling at Global Scale',
+        title: 'Rapid Commercial Scaling of Enterprise Generative AI Engagements',
         thesis:
-          'Over 350,000 employees trained in foundational AI skills, positioning TCS as the primary systems implementation partner for AI roadmaps.',
+          'Over 350,000 employees trained in foundational AI skills, positioning TCS as the primary systems implementation partner for enterprise AI adoption.',
         evidence:
-          'Launched dedicated AI units in collaboration with NVIDIA, Microsoft Azure, and AWS to build customized enterprise foundation models.',
+          'Management disclosed 600+ active GenAI engagements in Q2 FY25 (up from ~270 in the prior quarter), with nearly 86 projects entering production deployment versus 8 in the previous quarter.',
         sourceId: 'tcs-src-4',
-        sourceDetail: 'Q2 FY25 Earnings Call Transcript — AI Engagement Scaling & Workforce Readiness',
+        sourceDetail: 'Q2 FY25 Earnings Conference Call Transcript — Management Remarks on GenAI Engagements & Production Deployments',
         category: 'moat',
       },
     ],
     bearCase: [
       {
         id: 'tcs-bear-1',
-        title: 'Discretionary Technology Spending Delays in US & Europe',
+        title: 'Discretionary Technology Spending Delays in North America',
         thesis:
-          'Prolonged high interest rates and macro conservatism prompt Fortune 500 CIOs to scrutinize and defer non-essential consulting projects.',
+          'Enterprise macro conservatism and elongated client decision cycles continue to moderate discretionary technology spending across North American enterprise clients.',
         evidence:
-          'Short-term decision cycles lengthened in North America (TCS’s largest market by revenue share at ~50%).',
+          'Management commentary cited cautious demand sentiment and subdued discretionary deal activity in North America, with regional revenue declining 2.1% year-on-year in Q2 FY25, while essential cost and transformation programs remain resilient.',
         sourceId: 'tcs-src-4',
         sourceDetail: 'Q2 FY25 Earnings Conference Call Transcript — Management Remarks on North America Market Demand',
         severity: 'HIGH',
@@ -1174,13 +1174,13 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
       },
       {
         id: 'tcs-src-4',
-        title: 'TCS Q2 FY2024-25 Earnings Conference Call Transcript & Audio Webcast Archive',
+        title: 'TCS Q2 FY2024-25 Earnings Conference Call Transcript',
         publisher: 'Tata Consultancy Services Limited',
         publishDate: '2024-10-10',
-        url: 'https://www.tcs.com/investor-relations/financial-statements',
+        url: 'https://www.tcs.com/content/dam/tcs/investor-relations/financial-statements/2024-25/q2/Management%20Commentary/Transcript%20of%20the%20Q2%202024-25%20Earnings%20Conference%20Call%20held%20on%20Oct%2010%2C%202024.pdf',
         type: 'EARNINGS_CALL_TRANSCRIPT',
         description:
-          'Official management commentary and earnings conference call transcript for Q2 FY25 filed under SEBI LODR Regulation 46, detailing North America discretionary demand and AI initiatives.',
+          'Official management commentary and earnings conference call transcript for Q2 FY25 held on October 10, 2024, detailing North America market demand and AI engagements.',
       },
     ],
     externalLookupLinks: [
