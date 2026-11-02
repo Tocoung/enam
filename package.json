@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node scripts/test_portfolio_adapter_ts.mjs",
+    "test:py": "python3 scripts/test_portfolio_adapter.py && python3 scripts/test_sync_eod_data.py"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
