@@ -65,7 +65,7 @@ src/
 ├── data/                  # Bundled offline datasets
 │   ├── portfolioData.ts   # 20 simulated equities & default thresholds
 │   ├── realEodData.json   # Bundled 15-ticker historical EOD snapshot from Yahoo Finance
-│   ├── researchData.ts    # Curated research dossiers & 27-symbol local registry
+│   ├── researchData.ts    # 6 curated research dossiers & 27-symbol recognized NSE master registry
 │   └── announcementData.ts# 20 corporate announcements (primary, archive & demo)
 ├── services/              # Pure computational & adapter logic
 │   ├── portfolioService.ts# Dual-mode selection, snapshot validation & fallback routing
@@ -107,9 +107,9 @@ Simulated observations                       Yahoo Finance settled daily bars
 - **`REAL_EOD` Mode**:
   - Dynamically ingests the bundled historical snapshot (`src/data/realEodData.json`).
   - Displays a vibrant indigo/emerald provenance banner: `YAHOO FINANCE HISTORICAL EOD DATA — 13 of 20 positions use historical market observations as of 2026-11-02. Remaining positions use clearly labelled demo fallback data. Not live prices.`
-  - **13 Verified Real EOD Equities**: `RELIANCE`, `TCS`, `HDFCBANK`, `INFY`, `ICICIBANK`, `ITC`, `SBIN`, `LT`, `MARUTI`, `BAJFINANCE`, `SUNPHARMA`, `DRREDDY`, `SWIGGY`.
+  - **13 REAL_EOD positions backed by the bundled Yahoo Finance snapshot**: `RELIANCE`, `TCS`, `HDFCBANK`, `INFY`, `ICICIBANK`, `ITC`, `SBIN`, `LT`, `MARUTI`, `BAJFINANCE`, `SUNPHARMA`, `DRREDDY`, `SWIGGY`.
   - **7 Demo Fallback Equities**:
-    - `TATAMOTORS`: Provider data failure (symbol discontinued/demerged on exchange).
+    - `TATAMOTORS`: The configured Yahoo Finance symbol returned no usable market data during snapshot retrieval.
     - `HINDUNILVR`, `TITAN`, `NTPC`, `TATASTEEL`, `WIPRO`, `IDEA`: Symbols not included in the 15-ticker ingestion target list.
     - Each fallback stock is conspicuously tagged with an amber `DEMO FALLBACK` badge and an explanatory tooltip reason.
 
@@ -135,8 +135,8 @@ Research Copilot provides an evidence-based equity inspection terminal for any N
 
 - **Rigorous Ticker Normalization**: Strips whitespace, normalizes casing to uppercase, validates alphanumeric NSE format (`^[A-Z0-9&._-]{1,20}$`), and rejects malformed inputs.
 - **Three-Tier Identity Resolution**:
-  1. `CURATED_FILING_DATA` (**6 Core Companies**): Fully audited offline dossiers for `RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, and `SWIGGY`.
-  2. `SYMBOL_FOUND_IN_LOCAL_REGISTRY` (**27 Companies**): Recognizes valid NSE symbols from FINN's local master list (e.g. `TRENT`, `BEL`, `PAYTM`, `ASIANPAINT`, `ITC`, `INFY`), clearly stating that filings have not yet been indexed rather than hallucinating details.
+  1. `CURATED_FILING_DATA` (**6 Core Companies Only**): Comprehensive, evidence-grounded research dossiers exist exclusively for `RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, and `SWIGGY`. These feature audited FY24 statutory metrics, categorized bull/bear investment theses, and primary filing/transcript source links.
+  2. `SYMBOL_FOUND_IN_LOCAL_REGISTRY` (**27 Recognized NSE Symbols**): A local master registry recognizes 27 valid Indian equity symbols (including `TRENT`, `BEL`, `PAYTM`, `ASIANPAINT`, `ITC`, `INFY`). When queried, FINN confirms the symbol is recognized in its master registry, but explicitly clarifies that its statutory filings and research dossiers are **not** indexed in FINN's offline repository. Zero fabricated metrics or synthetic bull/bear cases are generated.
   3. `IDENTITY_NOT_VERIFIED` (**Arbitrary Valid Tickers**): For any valid unindexed symbol (e.g. `UNKNOWNCO`), displays an unverified identity banner with **zero fabricated numbers**, no fake bull/bear arguments, and provides direct lookup options for NSE India, BSE India, and Screener.in.
 - **Audited Financial Metrics**: Each metric card displays key statutory figures (Revenue, EBITDA, PAT, Debt/Equity, Operating Margins) explicitly tagged with `FY24 Audited` and direct note references. Missing metrics display `METRIC NOT INGESTED`.
 - **Strict Separation of Theses vs. Facts**:
@@ -201,7 +201,7 @@ FINN enforces transparency across every layer of the application:
 | **Dashboard (REAL_EOD Mode)** | Bundled Yahoo Finance snapshot (`realEodData.json`) | 13 equities | `REAL_EOD` | Settled EOD bars as of **2026-11-02**. Excludes in-progress sessions. |
 | **Dashboard Fallbacks** | Offline fallback generator (`portfolioService.ts`) | 7 equities | `DEMO_FALLBACK` | Clearly explained fallback reasons; does not present missing data as real. |
 | **Research (Curated)** | Audited FY24 Annual Reports & Q2 FY25 Call Transcripts | 6 companies | `CURATED_FILING_DATA` | Direct PDF links to company filings and conference call transcripts. |
-| **Research (Local List)** | Finite local symbol list (`researchData.ts`) | 27 symbols | `FOUND IN FINN LOCAL SYMBOL REGISTRY` | Verified symbol presence in FINN master list; filings unindexed. |
+| **Research (Local Registry)** | Recognized NSE master list (`researchData.ts`) | 27 symbols | `FOUND IN FINN LOCAL SYMBOL REGISTRY` | Symbol recognized in local master registry; research dossiers & filings unindexed. |
 | **Research (Unverified)** | Format validation only | Arbitrary inputs | `IDENTITY_NOT_VERIFIED` | Zero fabricated financials; official exchange lookup links only. |
 | **Corporate Announcements** | Statutory filings & simulated illustrations | 20 records | `VERIFIED_PRIMARY_DOCUMENT` (5)<br>`OFFICIAL_ARCHIVE_LINK` (1)<br>`DEMO_DATA` (14) | Direct exchange filing links for verified items; clearly tagged DEMO entries. |
 
@@ -281,17 +281,25 @@ node scripts/test_portfolio_adapter_ts.mjs
   - Exact classification in `REAL_EOD` mode (13 `REAL_EOD`, 7 `DEMO_FALLBACK`, 0 `DEMO`).
   - Baseline slicing integrity (verifies that $\ge 20$ historical sessions exist, are chronologically sorted, and strictly exclude the latest completed bar).
   - Numeric validity of current price, prevClose, and currentVolume across all 20 equities.
-  - Fallback diagnostic attribution (`TATAMOTORS` exchange demerger notice and unindexed ticker messages).
+  - Fallback diagnostic attribution (`TATAMOTORS` no-data notice and unindexed ticker messages).
   - Provenance propagation through derived metrics and alerts.
 
-### 3. Python Adapter Mirror Tests
+### 3. Python Verification Suites
+FINN provides two Python test suites. You can run both together via npm or invoke each script directly:
+
+```bash
+# Run both Python test suites (adapter mirror + EOD ingestion):
+npm run test:py
+```
+
+#### A. Python Adapter Mirror Tests (`scripts/test_portfolio_adapter.py`)
 Verifies mathematical and algorithmic parity against an independent Python reference implementation:
 ```bash
 python3 scripts/test_portfolio_adapter.py
 ```
 - **What it verifies (12 tests)**: Independent calculation of volume turnover ratios, alert trigger thresholds, advance/decline distribution, and fallback handling.
 
-### 4. EOD Ingestion Pipeline Unit Tests
+#### B. EOD Ingestion Pipeline Unit Tests (`scripts/test_sync_eod_data.py`)
 Verifies the Yahoo Finance EOD ingestion script logic:
 ```bash
 python3 scripts/test_sync_eod_data.py
@@ -394,10 +402,11 @@ To maintain institutional compliance and transparency, the following technical b
    - FINN does **not** provide live intraday tick data, real-time WebSocket feeds, or sub-minute order book depth.
 3. **Finite Ingestion Target List**:
    - The EOD ingestion pipeline targets 15 large-cap NSE equities. Because the portfolio watchlist contains 20 positions, 6 equities (`HINDUNILVR`, `TITAN`, `NTPC`, `TATASTEEL`, `WIPRO`, `IDEA`) default to `DEMO_FALLBACK`.
-   - `TATAMOTORS` is marked as `DEMO_FALLBACK` due to upstream provider data restructuring (corporate demerger).
-4. **Finite Curated Research Corpus**:
-   - Curated research dossiers exist for **6 companies** (`RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, `SWIGGY`).
-   - For all other tickers, FINN provides local symbol recognition or format validation only. FINN **never** fabricates financial figures or investment theses for unindexed companies.
+   - `TATAMOTORS` is marked as `DEMO_FALLBACK` because the configured Yahoo Finance symbol returned no usable market data during snapshot retrieval.
+4. **Strict Separation of Curated Dossiers vs. Local Master Registry**:
+   - Curated, evidence-grounded research dossiers exist exclusively for **6 companies** (`RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, `SWIGGY`).
+   - The **27 symbols** in FINN's local master list are recognized as valid NSE equities, but do **not** possess indexed research dossiers or statutory filings; when inspected, they display an explicit unindexed disclaimer with external exchange lookup links.
+   - For arbitrary valid ticker inputs, FINN provides syntax format validation only. FINN **never** fabricates financial figures, company names, or investment theses for unindexed or unverified companies.
 5. **Static Primary Document Links**:
    - Links in the Research Copilot (`rel-src-4`, `tcs-src-4`) point to official PDF documents and exchange archives. FINN does not perform runtime web scraping or live PDF parsing on the client.
 6. **No Automated Trade Execution**: FINN is an analytical intelligence interface and does not connect to broker APIs, OMS/EMS systems, or execute trades.
@@ -407,7 +416,7 @@ To maintain institutional compliance and transparency, the following technical b
 ## Interface Walkthrough & Screenshots
 
 > [!NOTE]
-> Static screenshots captured during validation runs are stored in conversation artifacts. Placeholders below illustrate key interface screens.
+> The screenshot file paths listed below (`docs/screenshots/*.png`) are placeholders. Screenshots must be captured and added to the repository. ASCII wireframes below illustrate each view's layout.
 
 ### 1. Portfolio Intelligence Dashboard (Dual-Mode: REAL_EOD vs. DEMO)
 Displays 20 portfolio equities, advance/decline breadth metrics, and volume outlier indicators with dynamic provenance banners.
