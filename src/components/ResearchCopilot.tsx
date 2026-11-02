@@ -658,12 +658,15 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                           <div className="flex items-center justify-between gap-1">
                             <span
                               className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold ${
-                                src.type === 'PRIMARY_FILING' || src.type === 'ANNUAL_REPORT'
+                                src.type === 'EARNINGS_CALL_TRANSCRIPT' ||
+                                src.type === 'EARNINGS_CALL_PRESENTATION'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : src.type === 'PRIMARY_FILING' || src.type === 'ANNUAL_REPORT'
                                   ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                                   : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'
                               }`}
                             >
-                              {src.type.replace('_', ' ')}
+                              {src.type.replace(/_/g, ' ')}
                             </span>
                             {src.publishDate && (
                               <span className="text-[10px] font-mono text-slate-400">

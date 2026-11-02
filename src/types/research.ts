@@ -86,7 +86,9 @@ export type SourceType =
   | 'EXCHANGE_DISCLOSURE'
   | 'ANNUAL_REPORT'
   | 'REGULATORY_PORTAL'
-  | 'SECONDARY_ANALYSIS';
+  | 'SECONDARY_ANALYSIS'
+  | 'EARNINGS_CALL_TRANSCRIPT'
+  | 'EARNINGS_CALL_PRESENTATION';
 
 export interface ResearchSource {
   id: string;

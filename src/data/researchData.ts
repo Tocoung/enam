@@ -647,8 +647,8 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
           'Global refining margins (GRMs) and polymer spreads face downward pressure from massive overseas chemical capacity additions.',
         evidence:
           'Downstream chemical margins remained compressed through FY24 due to global oversupply and muted European manufacturing demand.',
-        sourceId: 'rel-src-1',
-        sourceDetail: 'O2C Segment Operational Highlights FY24',
+        sourceId: 'rel-src-4',
+        sourceDetail: 'Q2 FY25 Financial Results Presentation — O2C Business Environment & Crack Spreads',
         severity: 'HIGH',
         category: 'margin_pressure',
       },
@@ -707,6 +707,16 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
         type: 'EXCHANGE_DISCLOSURE',
         description:
           'Regulation 33 SEBI LODR consolidated earnings releases, board outcomes, and segment disclosures.',
+      },
+      {
+        id: 'rel-src-4',
+        title: 'RIL Q2 FY2024-25 Financial Results Presentation & Earnings Webcast',
+        publisher: 'Reliance Industries Limited',
+        publishDate: '2024-10-14',
+        url: 'https://www.ril.com/investors/financial-reporting',
+        type: 'EARNINGS_CALL_PRESENTATION',
+        description:
+          'Official investor presentation and management webcast presentation for Q2 FY25 covering O2C market dynamics, global refining margins, and segment performance.',
       },
     ],
     externalLookupLinks: [
@@ -1088,8 +1098,8 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
           'Over 350,000 employees trained in foundational AI skills, positioning TCS as the primary systems implementation partner for AI roadmaps.',
         evidence:
           'Launched dedicated AI units in collaboration with NVIDIA, Microsoft Azure, and AWS to build customized enterprise foundation models.',
-        sourceId: 'tcs-src-1',
-        sourceDetail: 'TCS Technology & Innovation Report 2024',
+        sourceId: 'tcs-src-4',
+        sourceDetail: 'Q2 FY25 Earnings Call Transcript — AI Engagement Scaling & Workforce Readiness',
         category: 'moat',
       },
     ],
@@ -1101,8 +1111,8 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
           'Prolonged high interest rates and macro conservatism prompt Fortune 500 CIOs to scrutinize and defer non-essential consulting projects.',
         evidence:
           'Short-term decision cycles lengthened in North America (TCS’s largest market by revenue share at ~50%).',
-        sourceId: 'tcs-src-1',
-        sourceDetail: 'TCS Geographic Revenue Segment Review',
+        sourceId: 'tcs-src-4',
+        sourceDetail: 'Q2 FY25 Earnings Conference Call Transcript — Management Remarks on North America Market Demand',
         severity: 'HIGH',
         category: 'macro',
       },
@@ -1161,6 +1171,16 @@ export const VERIFIED_RESEARCH_REGISTRY: Record<string, ResearchReport> = {
         type: 'EXCHANGE_DISCLOSURE',
         description:
           'Regulation 33 SEBI LODR audited earnings announcement, dividend recommendation, and analyst presentation archive.',
+      },
+      {
+        id: 'tcs-src-4',
+        title: 'TCS Q2 FY2024-25 Earnings Conference Call Transcript & Audio Webcast Archive',
+        publisher: 'Tata Consultancy Services Limited',
+        publishDate: '2024-10-10',
+        url: 'https://www.tcs.com/investor-relations/financial-statements',
+        type: 'EARNINGS_CALL_TRANSCRIPT',
+        description:
+          'Official management commentary and earnings conference call transcript for Q2 FY25 filed under SEBI LODR Regulation 46, detailing North America discretionary demand and AI initiatives.',
       },
     ],
     externalLookupLinks: [
