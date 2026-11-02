@@ -28,11 +28,11 @@ export default function App() {
   const [activePage, setActivePage] = useState<'dashboard' | 'research' | 'announcements'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('ticker') || params.get('page') === 'research') {
-        return 'research';
-      }
       if (params.get('page') === 'announcements') {
         return 'announcements';
+      }
+      if (params.get('page') === 'research' || params.get('ticker')) {
+        return 'research';
       }
     }
     return 'dashboard';
@@ -43,6 +43,17 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       const t = params.get('ticker');
       if (t) return t.toUpperCase();
+    }
+    return undefined;
+  });
+
+  const [announcementFilterTicker, setAnnouncementFilterTicker] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('page') === 'announcements') {
+        const t = params.get('ticker');
+        if (t) return t.toUpperCase();
+      }
     }
     return undefined;
   });
@@ -99,6 +110,11 @@ export default function App() {
     setActivePage('research');
   };
 
+  const handleOpenAnnouncements = (ticker?: string) => {
+    setAnnouncementFilterTicker(ticker ? ticker.toUpperCase() : undefined);
+    setActivePage('announcements');
+  };
+
   const activeThresholdsLabel = `±${thresholds.priceChangePercentThreshold}% / ${thresholds.volumeRatioThreshold}x`;
 
   return (
@@ -114,7 +130,12 @@ export default function App() {
         snapshotAsOfDate={snapshotMeta.asOfDate}
         snapshotRetrievedAt={snapshotMeta.retrievedAt}
         activePage={activePage}
-        onSelectPage={setActivePage}
+        onSelectPage={(page) => {
+          if (page === 'announcements' && activePage !== 'announcements') {
+            setAnnouncementFilterTicker(undefined);
+          }
+          setActivePage(page);
+        }}
       />
 
       {/* Main Content Area */}
@@ -137,13 +158,22 @@ export default function App() {
                     {selectedTicker}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <button
                     onClick={() => handleOpenResearch(selectedTicker)}
                     className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2.5 py-1 rounded border border-indigo-500/30 transition shadow-sm"
+                    title={`Inspect comprehensive research dossier for ${selectedTicker}`}
                   >
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Deep Research in Copilot →</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenAnnouncements(selectedTicker)}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-sky-300 hover:text-white bg-sky-500/20 hover:bg-sky-500/30 px-2.5 py-1 rounded border border-sky-500/30 transition shadow-sm"
+                    title={`View statutory filings and corporate announcements for ${selectedTicker}`}
+                  >
+                    <Newspaper className="w-3.5 h-3.5 text-sky-400" />
+                    <span>View Filings →</span>
                   </button>
                   <button
                     onClick={() => setSelectedTicker(undefined)}
@@ -192,11 +222,16 @@ export default function App() {
           <ResearchCopilot
             initialTicker={researchTicker}
             onClearInitialTicker={() => setResearchTicker(undefined)}
+            onOpenAnnouncements={handleOpenAnnouncements}
             onBackToDashboard={() => setActivePage('dashboard')}
           />
         ) : (
           /* Corporate Announcement Intelligence Feed */
-          <AnnouncementFeed onOpenResearch={handleOpenResearch} />
+          <AnnouncementFeed
+            initialTicker={announcementFilterTicker}
+            onClearFilter={() => setAnnouncementFilterTicker(undefined)}
+            onOpenResearch={handleOpenResearch}
+          />
         )}
       </main>
 
@@ -260,7 +295,10 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActivePage('announcements')}
+          onClick={() => {
+            setAnnouncementFilterTicker(undefined);
+            setActivePage('announcements');
+          }}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'announcements'
               ? 'text-indigo-400 font-semibold'

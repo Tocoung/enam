@@ -13,6 +13,7 @@ import {
   AlertCircle,
   X,
   Info,
+  Newspaper,
 } from './icons';
 import { ResearchReport, ResearchStatus } from '../types/research';
 import {
@@ -24,12 +25,14 @@ import {
 interface ResearchCopilotProps {
   initialTicker?: string;
   onClearInitialTicker?: () => void;
+  onOpenAnnouncements?: (ticker: string) => void;
   onBackToDashboard?: () => void;
 }
 
 export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
   initialTicker,
   onClearInitialTicker,
+  onOpenAnnouncements,
   onBackToDashboard,
 }) => {
   const [tickerInput, setTickerInput] = useState<string>(initialTicker || '');
@@ -377,7 +380,17 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {onOpenAnnouncements && (
+                      <button
+                        onClick={() => onOpenAnnouncements(report.ticker)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 hover:text-white border border-sky-500/30 text-xs font-semibold transition shadow-sm active:scale-95"
+                        title={`View statutory filings and corporate announcements for ${report.ticker}`}
+                      >
+                        <Newspaper className="w-3.5 h-3.5 text-sky-400" />
+                        <span>View Statutory Filings →</span>
+                      </button>
+                    )}
                     <span className="px-2 py-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[11px] font-medium flex items-center gap-1 font-mono">
                       <CheckCircle className="w-3 h-3" />
                       <span>CURATED FILING DATA</span>

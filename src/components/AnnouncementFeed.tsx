@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   CorporateAnnouncement,
   AnnouncementCategoryFilter,
@@ -30,6 +30,8 @@ import {
 } from './icons';
 
 interface AnnouncementFeedProps {
+  initialTicker?: string;
+  onClearFilter?: () => void;
   onOpenResearch?: (ticker: string) => void;
 }
 
@@ -41,13 +43,23 @@ const CATEGORY_LABELS: Record<AnnouncementCategory, string> = {
   REGULATORY_LEGAL: 'Regulatory & Legal',
 };
 
-export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResearch }) => {
+export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({
+  initialTicker,
+  onClearFilter,
+  onOpenResearch,
+}) => {
   // Filter and sort state
+  const [companyFilter, setCompanyFilter] = useState<string | undefined>(initialTicker);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AnnouncementCategoryFilter>('ALL');
   const [selectedPriority, setSelectedPriority] = useState<AnnouncementPriorityFilter>('ALL');
   const [selectedProvenance, setSelectedProvenance] = useState<AnnouncementProvenanceFilter>('ALL');
   const [sortBy, setSortBy] = useState<AnnouncementSortOption>('NEWEST_FIRST');
+
+  // Sync internal company filter whenever parent prop changes (e.g. switching between different tickers)
+  useEffect(() => {
+    setCompanyFilter(initialTicker);
+  }, [initialTicker]);
 
   // Compute metrics across entire dataset
   const metrics = useMemo(() => {
@@ -56,14 +68,25 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
 
   // Filter and sort announcements
   const filteredAnnouncements = useMemo(() => {
-    return filterAndSortAnnouncements(CORPORATE_ANNOUNCEMENTS, {
+    let list = CORPORATE_ANNOUNCEMENTS;
+    if (companyFilter) {
+      list = list.filter((item) => item.ticker.toUpperCase() === companyFilter.toUpperCase());
+    }
+    return filterAndSortAnnouncements(list, {
       searchQuery,
       category: selectedCategory,
       priority: selectedPriority,
       provenance: selectedProvenance,
       sortBy,
     });
-  }, [searchQuery, selectedCategory, selectedPriority, selectedProvenance, sortBy]);
+  }, [companyFilter, searchQuery, selectedCategory, selectedPriority, selectedProvenance, sortBy]);
+
+  const handleClearCompanyFilter = () => {
+    setCompanyFilter(undefined);
+    if (onClearFilter) {
+      onClearFilter();
+    }
+  };
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -71,9 +94,14 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
     setSelectedPriority('ALL');
     setSelectedProvenance('ALL');
     setSortBy('NEWEST_FIRST');
+    setCompanyFilter(undefined);
+    if (onClearFilter) {
+      onClearFilter();
+    }
   };
 
   const isFilteringActive =
+    Boolean(companyFilter) ||
     searchQuery.trim() !== '' ||
     selectedCategory !== 'ALL' ||
     selectedPriority !== 'ALL' ||
@@ -168,6 +196,29 @@ export const AnnouncementFeed: React.FC<AnnouncementFeedProps> = ({ onOpenResear
 
       {/* 3. Filter and Search Controls */}
       <div className="space-y-3 bg-slate-900/40 p-3 sm:p-4 rounded-xl border border-slate-800 overflow-hidden min-w-0 max-w-full">
+        {/* Active Company Filter Indicator */}
+        {companyFilter && (
+          <div className="flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-lg bg-sky-950/60 border border-sky-500/30 text-xs shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-300 font-medium">Filtered by company:</span>
+              <span className="font-mono font-bold text-sky-200 px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-xs">
+                {companyFilter}
+              </span>
+              <span className="text-slate-400 text-[11px] hidden sm:inline">
+                ({filteredAnnouncements.length} {filteredAnnouncements.length === 1 ? 'filing' : 'filings'} displayed)
+              </span>
+            </div>
+            <button
+              onClick={handleClearCompanyFilter}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-medium transition active:scale-95 shrink-0"
+              title="Clear company filter and display all corporate announcements"
+            >
+              <X className="w-3.5 h-3.5 text-slate-400" />
+              <span>Clear filter</span>
+            </button>
+          </div>
+        )}
+
         {/* Top Row: Search and Quick Toggles */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
           {/* Search Box */}
