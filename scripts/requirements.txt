@@ -1,0 +1,2 @@
+# Python dependencies for FINN EOD Data Ingestion
+yfinance>=0.2.40
