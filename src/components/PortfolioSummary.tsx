@@ -93,6 +93,13 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
             style={{ width: `${stocks.length > 0 ? (decliners / stocks.length) * 100 : 0}%` }}
           />
         </div>
+        <p className="text-[11px] text-slate-400 mt-1 truncate">
+          {isRealMode && fallbackCount > 0 ? (
+            <span>Includes <span className="text-amber-400/90 font-medium">{fallbackCount} simulated fallback</span></span>
+          ) : (
+            <span>Across {stocks.length} monitored equities</span>
+          )}
+        </p>
       </div>
 
       {/* 3. Priority Alerts */}
@@ -105,7 +112,11 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
           <span className="text-2xl font-bold font-mono text-white">{alerts.length}</span>
           <span className="text-xs font-mono text-amber-400">({highPriorityCount} High)</span>
         </div>
-        <p className="text-[11px] text-slate-400 mt-1">Threshold-derived signals</p>
+        <p className="text-[11px] text-slate-400 mt-1 truncate">
+          {isRealMode && fallbackCount > 0
+            ? 'Signals across real & fallback'
+            : 'Threshold-derived signals'}
+        </p>
       </div>
 
       {/* 4. Volume Outliers */}

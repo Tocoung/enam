@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-Unit tests for FINN Portfolio Adapter, Dual-Mode Selection & Provenance Propagation.
-Phase A2 verification suite using Python's standard unittest module.
+Python Specification Mirror Test Suite for FINN Portfolio Adapter & Provenance Integration.
+
+NOTE: This test suite simulates the portfolio adapter in Python to verify specification
+rules and edge-case contracts against raw JSON/TS source files.
+It does NOT execute production TypeScript runtime code directly.
+
+For direct execution and testing of pure TypeScript production code (src/services/portfolioService.ts),
+execute: node scripts/test_portfolio_adapter_ts.mjs
 """
 
 import json
