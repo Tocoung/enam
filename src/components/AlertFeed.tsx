@@ -10,6 +10,30 @@ interface AlertFeedProps {
   onSelectTicker?: (ticker: string) => void;
 }
 
+function renderAlertProvenanceBadge(provenance: PortfolioAlert['provenance']) {
+  if (provenance === 'REAL_EOD') {
+    return (
+      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+        REAL EOD
+      </span>
+    );
+  }
+
+  if (provenance === 'DEMO_FALLBACK') {
+    return (
+      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+        DEMO FALLBACK
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50">
+      DEMO
+    </span>
+  );
+}
+
 export const AlertFeed: React.FC<AlertFeedProps> = ({
   alerts,
   selectedCategory,
@@ -134,9 +158,7 @@ export const AlertFeed: React.FC<AlertFeedProps> = ({
                     <span className="text-[10px] font-mono text-slate-400">
                       {alert.timestamp}
                     </span>
-                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50">
-                      DEMO
-                    </span>
+                    {renderAlertProvenanceBadge(alert.provenance)}
                   </div>
                 </div>
 

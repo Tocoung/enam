@@ -13,6 +13,11 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
   alerts,
   volumeThreshold,
 }) => {
+  // Provenance counts
+  const realCount = stocks.filter((s) => s.provenance === 'REAL_EOD').length;
+  const fallbackCount = stocks.filter((s) => s.provenance === 'DEMO_FALLBACK').length;
+  const isRealMode = realCount > 0 || fallbackCount > 0;
+
   // Unique sectors count
   const uniqueSectorsCount = new Set(stocks.map((s) => s.sector)).size;
   const advancers = stocks.filter((s) => s.priceChangePercent !== null && s.priceChangePercent > 0).length;
@@ -31,13 +36,30 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
       <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800/90 shadow-sm">
         <div className="flex items-center justify-between text-slate-400 mb-1">
           <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Coverage</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">NSE Bluechip</span>
+          {isRealMode ? (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              {realCount}/{stocks.length} Real EOD
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+              NSE Bluechip
+            </span>
+          )}
         </div>
         <div className="flex items-baseline gap-2 mt-1">
           <span className="text-2xl font-bold font-mono text-white">{stocks.length}</span>
           <span className="text-xs text-slate-400">Equities</span>
         </div>
-        <p className="text-[11px] text-slate-400 mt-1">Across {uniqueSectorsCount} core NSE sectors</p>
+        {isRealMode ? (
+          <p className="text-[11px] text-slate-400 mt-1 truncate">
+            <span className="text-emerald-400 font-semibold">{realCount} Real EOD</span>
+            {fallbackCount > 0 && (
+              <span> • <span className="text-amber-400/90 font-medium">{fallbackCount} Demo Fallback</span></span>
+            )}
+          </p>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-1">Across {uniqueSectorsCount} core NSE sectors</p>
+        )}
       </div>
 
       {/* 2. Market Breadth */}
@@ -64,11 +86,11 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
         <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden flex">
           <div
             className="bg-emerald-500 h-full"
-            style={{ width: `${(advancers / stocks.length) * 100}%` }}
+            style={{ width: `${stocks.length > 0 ? (advancers / stocks.length) * 100 : 0}%` }}
           />
           <div
             className="bg-rose-500 h-full"
-            style={{ width: `${(decliners / stocks.length) * 100}%` }}
+            style={{ width: `${stocks.length > 0 ? (decliners / stocks.length) * 100 : 0}%` }}
           />
         </div>
       </div>

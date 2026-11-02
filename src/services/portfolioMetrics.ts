@@ -155,8 +155,20 @@ export function deriveAlerts(
   const highVolumeThreshold = thresholds.volumeRatioThreshold * thresholds.highPriorityMultiplier;
 
   for (const stock of stocks) {
+    const alertTimestamp =
+      stock.provenance === 'REAL_EOD'
+        ? `${stock.asOfDate || 'Historical'} EOD Close`
+        : stock.provenance === 'DEMO_FALLBACK'
+        ? 'Demo Fallback Close'
+        : 'Simulated Session';
+
     // 1. Price Movement Alert
-    if (stock.priceChangePercent !== null) {
+    if (
+      stock.priceChangePercent !== null &&
+      !stock.isMissingPriceData &&
+      stock.currentPrice !== null &&
+      stock.prevClose !== null
+    ) {
       const absPriceChange = Math.abs(stock.priceChangePercent);
       if (absPriceChange >= thresholds.priceChangePercentThreshold) {
         const isHigh = absPriceChange >= highPriceThreshold;
@@ -171,17 +183,21 @@ export function deriveAlerts(
           type: 'PRICE_MOVEMENT',
           severity: isHigh ? 'HIGH' : 'MEDIUM',
           title: `${stock.ticker} Price ${direction} of ${sign}${stock.priceChangePercent}%`,
-          description: `Price moved from ₹${stock.prevClose?.toLocaleString('en-IN')} to ₹${stock.currentPrice?.toLocaleString('en-IN')}, crossing the ±${thresholds.priceChangePercentThreshold}% threshold.`,
+          description: `Price moved from ₹${stock.prevClose.toLocaleString('en-IN')} to ₹${stock.currentPrice.toLocaleString('en-IN')}, crossing the ±${thresholds.priceChangePercentThreshold}% threshold.`,
           metricLabel: '1D Move',
           metricValue: `${sign}${stock.priceChangePercent}%`,
-          timestamp: 'Today, 15:30 IST',
-          provenance: 'DEMO',
+          timestamp: alertTimestamp,
+          provenance: stock.provenance,
         });
       }
     }
 
     // 2. Unusual Volume Alert
-    if (stock.volumeRatio !== null && !stock.isInsufficientVolumeHistory) {
+    if (
+      stock.volumeRatio !== null &&
+      !stock.isInsufficientVolumeHistory &&
+      stock.currentVolume !== null
+    ) {
       if (stock.volumeRatio >= thresholds.volumeRatioThreshold) {
         const isHigh = stock.volumeRatio >= highVolumeThreshold;
 
@@ -193,11 +209,11 @@ export function deriveAlerts(
           type: 'UNUSUAL_VOLUME',
           severity: isHigh ? 'HIGH' : 'MEDIUM',
           title: `${stock.ticker} Trading at ${stock.volumeRatio}x 20D Average Volume`,
-          description: `Session volume is ${formatVolumeCompact(stock.currentVolume || 0)} vs 20-day baseline of ${formatVolumeCompact(stock.avg20dVolume || 0)} (threshold: ${thresholds.volumeRatioThreshold}x).`,
+          description: `Session volume is ${formatVolumeCompact(stock.currentVolume)} vs 20-day baseline of ${formatVolumeCompact(stock.avg20dVolume || 0)} (threshold: ${thresholds.volumeRatioThreshold}x).`,
           metricLabel: 'Vol Ratio',
           metricValue: `${stock.volumeRatio}x`,
-          timestamp: 'Today, 15:30 IST',
-          provenance: 'DEMO',
+          timestamp: alertTimestamp,
+          provenance: stock.provenance,
         });
       }
     }

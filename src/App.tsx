@@ -1,13 +1,19 @@
 import { useState, useMemo } from 'react';
 import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles, Newspaper } from './components/icons';
-import { PORTFOLIO_RAW_DATA, DEFAULT_THRESHOLDS } from './data/portfolioData';
+import { DEFAULT_THRESHOLDS } from './data/portfolioData';
 import {
   computeStockMetrics,
   deriveAlerts,
 } from './services/portfolioMetrics';
 import {
+  getPortfolioStocks,
+  getSnapshotMetadata,
+  getPortfolioCoverage,
+} from './services/portfolioService';
+import {
   ThresholdConfig,
   AlertFilterCategory,
+  PortfolioDataMode,
 } from './types/portfolio';
 import { Header } from './components/Header';
 import { PortfolioSummary } from './components/PortfolioSummary';
@@ -41,6 +47,12 @@ export default function App() {
     return undefined;
   });
 
+  // User-selectable portfolio data mode: default is DEMO
+  const [portfolioMode, setPortfolioMode] = useState<PortfolioDataMode>('DEMO');
+
+  // Metadata from bundled historical EOD snapshot
+  const snapshotMeta = useMemo(() => getSnapshotMetadata(), []);
+
   // Configurable alert thresholds
   const [thresholds, setThresholds] = useState<ThresholdConfig>(DEFAULT_THRESHOLDS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -52,10 +64,20 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState<string | undefined>(undefined);
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<AlertFilterCategory>('ALL');
 
+  // Derive portfolio raw stocks based on selected mode (DEMO vs REAL_EOD)
+  const portfolioRawStocks = useMemo(() => {
+    return getPortfolioStocks(portfolioMode);
+  }, [portfolioMode]);
+
   // Compute stock metrics (isolated calculation)
   const stocksWithMetrics = useMemo(() => {
-    return PORTFOLIO_RAW_DATA.map(computeStockMetrics);
-  }, []);
+    return portfolioRawStocks.map(computeStockMetrics);
+  }, [portfolioRawStocks]);
+
+  // Coverage counts across the portfolio
+  const coverage = useMemo(() => {
+    return getPortfolioCoverage(portfolioRawStocks);
+  }, [portfolioRawStocks]);
 
   // Derive alerts dynamically based on user-configured thresholds
   const alerts = useMemo(() => {
@@ -81,11 +103,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white pb-16 lg:pb-6 overflow-x-hidden w-full max-w-full">
-      {/* 1. Header with Unmistakable DEMO DATA warning & Page Navigation */}
+      {/* 1. Header with Mode Selector, Dynamic Provenance Warning & Page Navigation */}
       <Header
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeThresholdsLabel={activeThresholdsLabel}
         stocksCount={stocksWithMetrics.length}
+        realStocksCount={coverage.realCount}
+        portfolioMode={portfolioMode}
+        onSelectPortfolioMode={setPortfolioMode}
+        snapshotAsOfDate={snapshotMeta.asOfDate}
+        snapshotRetrievedAt={snapshotMeta.retrievedAt}
         activePage={activePage}
         onSelectPage={setActivePage}
       />

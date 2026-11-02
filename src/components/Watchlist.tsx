@@ -26,6 +26,39 @@ interface WatchlistProps {
 type SortField = 'ticker' | 'price' | 'change' | 'volumeRatio';
 type SortOrder = 'asc' | 'desc';
 
+function renderProvenanceBadge(stock: StockWithMetrics) {
+  if (stock.provenance === 'REAL_EOD') {
+    return (
+      <span
+        className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold"
+        title={`Historical EOD observation from Yahoo Finance (${stock.asOfDate || 'settled session'})`}
+      >
+        REAL EOD
+      </span>
+    );
+  }
+
+  if (stock.provenance === 'DEMO_FALLBACK') {
+    return (
+      <span
+        className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 cursor-help font-semibold"
+        title={`Demo Fallback: ${stock.fallbackReason || 'No real EOD data available'}`}
+      >
+        DEMO FALLBACK
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/50"
+      title="Simulated portfolio demo data"
+    >
+      DEMO
+    </span>
+  );
+}
+
 export const Watchlist: React.FC<WatchlistProps> = ({
   stocks,
   onSelectTicker,
@@ -187,19 +220,22 @@ export const Watchlist: React.FC<WatchlistProps> = ({
                     : 'hover:bg-slate-850/60 active:bg-slate-800/50'
                 }`}
               >
-                {/* Left: Ticker, DEMO Tag, Name, Sector */}
+                {/* Left: Ticker, Provenance Tag, Name, Sector */}
                 <div className="flex-1 min-w-0 pr-1">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="font-mono font-bold text-sm text-slate-100 tracking-tight">
                       {stock.ticker}
                     </span>
-                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/50">
-                      DEMO
-                    </span>
+                    {renderProvenanceBadge(stock)}
                   </div>
                   <p className="text-[11px] text-slate-400 truncate">
                     {stock.name}
                   </p>
+                  {stock.provenance === 'DEMO_FALLBACK' && stock.fallbackReason && (
+                    <p className="text-[10px] text-amber-400/90 truncate mt-0.5 font-mono" title={stock.fallbackReason}>
+                      Fallback: {stock.fallbackReason}
+                    </p>
+                  )}
                   <p className="text-[10px] text-slate-400 truncate mt-0.5">
                     {stock.sector}
                   </p>
@@ -355,13 +391,16 @@ export const Watchlist: React.FC<WatchlistProps> = ({
                             <span className="font-mono font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">
                               {stock.ticker}
                             </span>
-                            <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/50">
-                              DEMO
-                            </span>
+                            {renderProvenanceBadge(stock)}
                           </div>
                           <p className="text-[11px] text-slate-400 truncate max-w-[150px] sm:max-w-[200px]">
                             {stock.name}
                           </p>
+                          {stock.provenance === 'DEMO_FALLBACK' && stock.fallbackReason && (
+                            <p className="text-[10px] text-amber-400/80 truncate max-w-[180px] sm:max-w-[220px]" title={stock.fallbackReason}>
+                              {stock.fallbackReason}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

@@ -1,10 +1,16 @@
 import React from 'react';
 import { Sliders, ShieldCheck, LayoutDashboard, Sparkles, Newspaper } from './icons';
+import { PortfolioDataMode } from '../types/portfolio';
 
 interface HeaderProps {
   onOpenSettings: () => void;
   activeThresholdsLabel: string;
   stocksCount: number;
+  realStocksCount: number;
+  portfolioMode: PortfolioDataMode;
+  onSelectPortfolioMode: (mode: PortfolioDataMode) => void;
+  snapshotAsOfDate?: string | null;
+  snapshotRetrievedAt?: string;
   activePage: 'dashboard' | 'research' | 'announcements';
   onSelectPage: (page: 'dashboard' | 'research' | 'announcements') => void;
 }
@@ -13,21 +19,40 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   activeThresholdsLabel,
   stocksCount,
+  realStocksCount,
+  portfolioMode,
+  onSelectPortfolioMode,
+  snapshotAsOfDate,
+  snapshotRetrievedAt: _snapshotRetrievedAt,
   activePage,
   onSelectPage,
 }) => {
+  const isReal = portfolioMode === 'REAL_EOD';
+
   return (
     <header className="sticky top-0 z-30 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80">
-      {/* Top Banner: Unmistakable DEMO DATA Warning */}
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-center flex items-center justify-center gap-2">
-        <span className="flex h-2 w-2 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-        </span>
-        <p className="text-[11px] font-semibold tracking-wide uppercase text-amber-300">
-          DEMO DATA PROTOTYPE — Simulated NSE observations for evaluation. Not live trading data.
-        </p>
-      </div>
+      {/* Top Banner: Dynamic Provenance & Market Attribution */}
+      {isReal ? (
+        <div className="bg-indigo-950/60 border-b border-indigo-500/30 px-4 py-1.5 text-center flex items-center justify-center gap-2">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <p className="text-[11px] font-semibold tracking-wide uppercase text-indigo-200">
+            YAHOO FINANCE HISTORICAL EOD DATA — {realStocksCount} of {stocksCount} positions use historical market observations as of {snapshotAsOfDate || 'settled session'}. Remaining positions use clearly labelled demo fallback data. Not live prices.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-center flex items-center justify-center gap-2">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+          </span>
+          <p className="text-[11px] font-semibold tracking-wide uppercase text-amber-300">
+            DEMO DATA — Simulated portfolio observations. Not live trading data.
+          </p>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         {/* Brand & Market Status */}
@@ -52,14 +77,37 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span className="inline-flex items-center gap-1 text-emerald-400 whitespace-nowrap">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                NSE Simulated
-              </span>
-              <span>•</span>
-              <span className="font-mono text-slate-400 whitespace-nowrap">
-                {stocksCount} Monitored
-              </span>
+              {isReal ? (
+                <>
+                  <span className="inline-flex items-center gap-1 text-emerald-400 whitespace-nowrap font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                    Yahoo Finance EOD
+                  </span>
+                  <span>•</span>
+                  <span className="font-mono text-indigo-300 whitespace-nowrap">
+                    {realStocksCount}/{stocksCount} Real EOD
+                  </span>
+                  {snapshotAsOfDate && (
+                    <>
+                      <span>•</span>
+                      <span className="font-mono text-slate-400 whitespace-nowrap">
+                        As-of {snapshotAsOfDate}
+                      </span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1 text-amber-400 whitespace-nowrap">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                    Simulated Portfolio
+                  </span>
+                  <span>•</span>
+                  <span className="font-mono text-slate-400 whitespace-nowrap">
+                    {stocksCount} Monitored
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -109,11 +157,41 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </nav>
 
-        {/* Action Controls */}
+        {/* Mode Selector & Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Dual-Mode Selector: DEMO / REAL EOD */}
+          <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono">
+            <button
+              onClick={() => onSelectPortfolioMode('DEMO')}
+              className={`px-2.5 py-1 rounded-md transition-all text-xs font-semibold ${
+                !isReal
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Simulated Demo Data Mode"
+            >
+              DEMO
+            </button>
+            <button
+              onClick={() => onSelectPortfolioMode('REAL_EOD')}
+              className={`px-2.5 py-1 rounded-md transition-all text-xs font-semibold ${
+                isReal
+                  ? 'bg-indigo-600 text-white border border-indigo-500 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Yahoo Finance Historical EOD Data Mode"
+            >
+              REAL EOD
+            </button>
+          </div>
+
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400 text-xs font-mono">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Strict Provenance: DEMO</span>
+            <ShieldCheck className={`w-3.5 h-3.5 ${isReal ? 'text-emerald-400' : 'text-amber-400'}`} />
+            <span>
+              {isReal
+                ? `Yahoo Finance EOD (${snapshotAsOfDate || 'settled'})`
+                : 'Strict Provenance: DEMO'}
+            </span>
           </div>
 
           <button
