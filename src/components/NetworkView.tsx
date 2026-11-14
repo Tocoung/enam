@@ -4,6 +4,7 @@ import {
   ContactRecommendation,
   NetworkSearchResult,
   ExpertiseCategory,
+  QueryExecutionResult,
 } from '../types/network';
 import { NETWORK_DATASET } from '../data/networkData';
 import {
@@ -15,9 +16,13 @@ import {
   searchNetwork,
   findIntroductionPaths,
 } from '../services/networkService';
+import {
+  queryNetworkNaturalLanguage,
+} from '../services/networkQueryService';
 import { NetworkOverviewCards } from './network/NetworkOverviewCards';
 import { NetworkContactCard } from './network/NetworkContactCard';
 import { NetworkContactProfileModal } from './network/NetworkContactProfileModal';
+import { NetworkPathVisualizer } from './network/NetworkPathVisualizer';
 import {
   Search,
   Building2,
@@ -28,9 +33,25 @@ import {
   Briefcase,
   RotateCcw,
   Info,
+  Sparkles,
 } from './icons';
 
-export type NetworkQueryMode = 'DISCOVERY' | 'COMPANY' | 'SECTOR' | 'EXPERTISE' | 'ALL_DIRECTORY';
+export type NetworkQueryMode =
+  | 'NATURAL_QUERY'
+  | 'DISCOVERY'
+  | 'COMPANY'
+  | 'SECTOR'
+  | 'EXPERTISE'
+  | 'ALL_DIRECTORY';
+
+const SUGGESTED_COPILOT_QUESTIONS = [
+  'Who can help me understand Reliance?',
+  'Who has experience in the banking sector?',
+  'Who can connect me to Vikram Sen?',
+  'Who understands refining margins?',
+  'Who has worked at TCS?',
+  'Who can connect me to the new MD of Company X?',
+];
 
 const SUGGESTED_COMPANIES = [
   'RELIANCE',
@@ -89,7 +110,9 @@ export const NetworkView: React.FC = () => {
   }, [graph]);
 
   // 3. UI State
-  const [queryMode, setQueryMode] = useState<NetworkQueryMode>('DISCOVERY');
+  const [queryMode, setQueryMode] = useState<NetworkQueryMode>('NATURAL_QUERY');
+  const [naturalQueryInput, setNaturalQueryInput] = useState<string>('Who can help me understand Reliance?');
+  const [executedNaturalQuery, setExecutedNaturalQuery] = useState<string>('Who can help me understand Reliance?');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<string>('RELIANCE');
   const [selectedSector, setSelectedSector] = useState<string>('Energy');
@@ -98,13 +121,23 @@ export const NetworkView: React.FC = () => {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [overviewCategoryFilter, setOverviewCategoryFilter] = useState<ExpertiseCategory | 'ALL'>('ALL');
 
-  // 4. Derive contacts based on the active query mode
+  // 4. Natural query execution
+  const naturalQueryResult: QueryExecutionResult | null = useMemo(() => {
+    if (queryMode !== 'NATURAL_QUERY' || !executedNaturalQuery.trim()) {
+      return null;
+    }
+    return queryNetworkNaturalLanguage(executedNaturalQuery, graph);
+  }, [queryMode, executedNaturalQuery, graph]);
+
+  // 5. Derive contacts based on the active query mode
   const { recommendations, searchResults, directoryPeople } = useMemo(() => {
     let recs: ContactRecommendation[] | undefined = undefined;
     let sResults: NetworkSearchResult[] | undefined = undefined;
     let dirList: Person[] | undefined = undefined;
 
-    if (queryMode === 'DISCOVERY') {
+    if (queryMode === 'NATURAL_QUERY') {
+      recs = naturalQueryResult ? Array.from(naturalQueryResult.recommendations) : [];
+    } else if (queryMode === 'DISCOVERY') {
       if (searchQuery.trim()) {
         sResults = searchNetwork(searchQuery, graph);
       } else {
@@ -125,7 +158,7 @@ export const NetworkView: React.FC = () => {
       searchResults: sResults,
       directoryPeople: dirList,
     };
-  }, [queryMode, searchQuery, selectedCompany, selectedSector, selectedExpertise, graph]);
+  }, [queryMode, naturalQueryResult, searchQuery, selectedCompany, selectedSector, selectedExpertise, graph]);
 
   // 5. Apply degree filter and category filter
   const filteredItems = useMemo(() => {
@@ -178,7 +211,9 @@ export const NetworkView: React.FC = () => {
   }, [queryMode, recommendations, searchResults, directoryPeople, degreeFilter, overviewCategoryFilter, graph]);
 
   const resetFilters = () => {
-    setQueryMode('DISCOVERY');
+    setQueryMode('NATURAL_QUERY');
+    setNaturalQueryInput('Who can help me understand Reliance?');
+    setExecutedNaturalQuery('Who can help me understand Reliance?');
     setSearchQuery('');
     setDegreeFilter('ALL');
     setOverviewCategoryFilter('ALL');
@@ -227,6 +262,18 @@ export const NetworkView: React.FC = () => {
         {/* Navigation Mode Pill Tabs */}
         <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-slate-800">
           <div className="flex items-center flex-wrap gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium">
+            <button
+              onClick={() => setQueryMode('NATURAL_QUERY')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition ${
+                queryMode === 'NATURAL_QUERY'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Network Copilot</span>
+            </button>
+
             <button
               onClick={() => setQueryMode('DISCOVERY')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition ${
@@ -330,7 +377,104 @@ export const NetworkView: React.FC = () => {
 
         {/* Mode-Specific Input Controls */}
         <div>
-          {queryMode === 'DISCOVERY' ? (
+          {queryMode === 'NATURAL_QUERY' ? (
+            <div className="space-y-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (naturalQueryInput.trim()) {
+                    setExecutedNaturalQuery(naturalQueryInput.trim());
+                  }
+                }}
+                className="space-y-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Sparkles className="w-4 h-4 text-indigo-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={naturalQueryInput}
+                      onChange={(e) => setNaturalQueryInput(e.target.value)}
+                      placeholder="Ask an investment question (e.g. 'Who can help me understand Reliance?', 'Who has worked at TCS?')..."
+                      className="w-full pl-10 pr-14 py-2.5 rounded-lg bg-slate-950 border border-indigo-500/40 focus:border-indigo-400 focus:outline-none text-white text-xs sm:text-sm font-sans placeholder-slate-500 shadow-inner"
+                    />
+                    {naturalQueryInput && (
+                      <button
+                        type="button"
+                        onClick={() => setNaturalQueryInput('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 shrink-0"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Ask Copilot</span>
+                  </button>
+                </div>
+
+                {/* Example Inquiries Pills */}
+                <div className="flex items-center flex-wrap gap-1.5 text-xs">
+                  <span className="text-[11px] text-slate-500 font-mono">Example Inquiries:</span>
+                  {SUGGESTED_COPILOT_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => {
+                        setNaturalQueryInput(q);
+                        setExecutedNaturalQuery(q);
+                      }}
+                      className="px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-indigo-950 hover:border-indigo-500/50 text-slate-300 hover:text-indigo-200 text-[11px] font-sans border border-slate-700/60 transition"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </form>
+
+              {/* Interpretation Banner */}
+              {naturalQueryResult && (
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-mono text-[11px]">Interpreted Intent:</span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          naturalQueryResult.query.intent === 'COMPANY'
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                            : naturalQueryResult.query.intent === 'SECTOR'
+                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                            : naturalQueryResult.query.intent === 'EXPERTISE'
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : naturalQueryResult.query.intent === 'ORGANISATION_HISTORY'
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            : naturalQueryResult.query.intent === 'PERSON_CONNECTION'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        }`}
+                      >
+                        {naturalQueryResult.query.interpretationLabel}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Match: <strong className="text-indigo-300">{naturalQueryResult.query.confidence}</strong>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    {naturalQueryResult.query.explanation}
+                  </p>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+                    <span className="font-medium text-slate-300">{naturalQueryResult.statusMessage}</span>
+                    <span className="italic text-slate-500 hidden sm:inline">{naturalQueryResult.provenanceNotice}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : queryMode === 'DISCOVERY' ? (
             <div className="space-y-2">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -458,7 +602,11 @@ export const NetworkView: React.FC = () => {
         <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-400 flex items-start sm:items-center gap-2">
           <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 sm:mt-0" />
           <p className="text-[11px] leading-relaxed">
-            {queryMode === 'DISCOVERY' ? (
+            {queryMode === 'NATURAL_QUERY' ? (
+              <span>
+                <strong>Copilot Natural Query:</strong> Deterministic intent interpretation maps your investment question to companies, sectors, expertise, or persona connection paths. Contacts are ranked by domain relevance (65%) and accessibility (35%).
+              </span>
+            ) : queryMode === 'DISCOVERY' ? (
               <span>
                 <strong>Discovery Mode:</strong> Search Ranking combines textual match quality (70%) with relationship accessibility (30%). Search matches are highlighted across names, roles, and profiles.
               </span>
@@ -481,7 +629,9 @@ export const NetworkView: React.FC = () => {
         <div className="flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="font-bold text-white uppercase tracking-wider text-[11px]">
-              {queryMode === 'DISCOVERY'
+              {queryMode === 'NATURAL_QUERY'
+                ? `Copilot Recommendations (${filteredItems.items.length})`
+                : queryMode === 'DISCOVERY'
                 ? `Search Results (${filteredItems.items.length})`
                 : queryMode === 'COMPANY'
                 ? `Relevant Contacts for ${selectedCompany} (${filteredItems.items.length})`
@@ -503,7 +653,7 @@ export const NetworkView: React.FC = () => {
             )}
           </div>
 
-          {(degreeFilter !== 'ALL' || overviewCategoryFilter !== 'ALL' || searchQuery) && (
+          {(degreeFilter !== 'ALL' || overviewCategoryFilter !== 'ALL' || searchQuery || (queryMode === 'NATURAL_QUERY' && naturalQueryInput)) && (
             <button
               onClick={resetFilters}
               className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition"
@@ -514,6 +664,31 @@ export const NetworkView: React.FC = () => {
           )}
         </div>
 
+        {/* Introduction Paths Visualizer for Person Connection queries */}
+        {queryMode === 'NATURAL_QUERY' &&
+          naturalQueryResult?.query.intent === 'PERSON_CONNECTION' &&
+          naturalQueryResult.personConnectionPaths &&
+          naturalQueryResult.personConnectionPaths.length > 0 && (
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                    Introduction Paths to {naturalQueryResult.query.targetPerson?.name}
+                  </h4>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-400">
+                  {naturalQueryResult.personConnectionPaths.length} Available Path{naturalQueryResult.personConnectionPaths.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {naturalQueryResult.personConnectionPaths.map((p, idx) => (
+                  <NetworkPathVisualizer key={idx} path={p} />
+                ))}
+              </div>
+            </div>
+        )}
+
         {/* Empty State / Helpful Guidance */}
         {filteredItems.items.length === 0 ? (
           <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
@@ -522,7 +697,9 @@ export const NetworkView: React.FC = () => {
             </div>
             <h3 className="text-base font-bold text-white">No Matching Contacts Found</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              {queryMode === 'DISCOVERY'
+              {queryMode === 'NATURAL_QUERY'
+                ? naturalQueryResult?.statusMessage || 'Enter an investment question to query the network.'
+                : queryMode === 'DISCOVERY'
                 ? searchQuery.trim()
                   ? `No synthetic network profiles matched "${searchQuery}". Try searching for another persona name, company, or domain skill.`
                   : 'Type a query in the search bar above or choose a suggested topic to explore the network.'

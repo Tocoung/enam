@@ -3,7 +3,7 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 4 Implemented — Review Pending (Interface, Navigation & URL Synchronization)  
+**Status:** Phase 1, Step 5 Implemented — Review Pending (Direct Network Intelligence Query Workflow)  
 **Target Repository:** `https://github.com/Tocoung/enam`  
 **Current Commit:** `da246bbd2b7c269eb67e4e6503816e8d980183ac` (Base commit: `bf23f382f882a26255bce710b569ec2095ae6c3f`)
 
@@ -667,16 +667,18 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ 4. Network Interface: Standalone Network UI (IMPLEMENTED — REVIEW PENDING)  │
+│ 4. Network Interface: Standalone Network UI (COMPLETE)                      │
 │ • Built standalone NetworkView with multi-mode queries & degree filters     │
 │ • Integrated navigation in App.tsx & Header.tsx with full URL synchronization│
 │ • Step 4.1 Refinements: popstate back/forward, provenance wording & tests   │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ 5. Direct Network Queries: Dedicated Target & Filter Workflows (PLANNED)    │
-│ • Direct company, sector, and expertise contact retrieval endpoints         │
-│ • Interactive introduction path expansion & intermediary display            │
+│ 5. Direct Network Queries: Dedicated Target & Filter Workflows (IMPLEMENTED — REVIEW PENDING) │
+│ • Natural-language query interpretation layer (5 intents) in networkQueryService.ts │
+│ • Non-inference safeguards, alias dictionaries & score breakdown reconciliation │
+│ • Network Copilot UI in NetworkView.tsx with path visualizer & example queries │
+│ • Automated unit test suite in scripts/test_network_query.mjs (120 passing)  │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
@@ -799,6 +801,59 @@ To ensure disciplined execution without regressions, the implementation follows 
   - Unit tests verifying URL parsing, canonical URL construction, redundant push prevention, and history transitions.
   - `npm test`: Full test suite passing across all service and navigation suites.
   - `npm run build`: Production build verified with zero errors.
+
+### 12.5 Phase 1 Step 5 Implemented Direct Network Query Workflow Specification (Review Pending)
+- **Typed Query Interpretation Layer (`src/services/networkQueryService.ts`, `src/types/network.ts`)**:
+  - Deterministic natural-language parser mapping investor queries into 5 supported intents:
+    1. `COMPANY`: Identifies professionals relevant to a listed company (e.g., *"Who can help me understand Reliance?"*, *"Who covers TCS?"*).
+    2. `SECTOR`: Identifies professionals with operational experience in a sector (e.g., *"Who has experience in the banking sector?"*, *"Who knows about telecom?"*).
+    3. `EXPERTISE`: Identifies professionals with specific skills or operational domains (e.g., *"Who understands refining margins?"*, *"Who knows cloud migration?"*).
+    4. `ORGANISATION_HISTORY`: Identifies professionals who currently or previously worked at a named organisation (e.g., *"Who has worked at TCS?"*, *"Who worked at McKinsey?"*, *"Who previously worked at SEBI?"*).
+    5. `PERSON_CONNECTION`: Identifies direct or second-degree introduction paths to a named person in the graph (e.g., *"Who can connect me to Vikram Sen?"*, *"How can I meet Priya Nair?"*).
+  - Strongly typed discriminated union `InterpretedNetworkQuery` with confidence metadata (`EXACT`, `HIGH`, `AMBIGUOUS`, `UNRESOLVED`).
+  - Strict pattern precedence: domain/sector queries containing prepositions (e.g., *"Who knows about telecom?"*) are disambiguated from person queries (e.g., *"Who knows Vikram Sen?"*).
+- **Deterministic Alias Registries & Resolvers**:
+  - **Company Aliases (`COMPANY_ALIASES`)**: Maps all verified NSE/BSE tickers, legal names, brand names, and abbreviations (e.g., `RIL`, `Reliance`, `Reliance Industries` $\rightarrow$ `RELIANCE`; `TCS`, `Tata Consultancy` $\rightarrow$ `TCS`). Grounded strictly in `LOCAL_VERIFIED_SYMBOL_REGISTRY`.
+  - **Unlisted Organisation Aliases (`UNLISTED_ORG_ALIASES`)**: Maps prominent unlisted employers (McKinsey, Bain, ValueBridge, SEBI, Surge, etc.) to canonical organisation identifiers.
+  - **Sector Query Aliases (`SECTOR_QUERY_ALIASES`)**: Normalizes banking, energy, technology, telecom, healthcare, consumer, automotive, and infrastructure queries to canonical sector keys.
+  - **Expertise Query Aliases (`EXPERTISE_QUERY_ALIASES`)**: Normalizes operational topics (refining margins, crack spreads, cloud migration, enterprise architecture, core banking, NPA provisioning, credit underwriting, etc.) to canonical expertise IDs.
+  - **Person Name Resolver (`findPersonByName`)**: Matches full names, first/last names, and normalised token combinations against synthetic graph personas.
+- **Strict Non-Inference & Unknown Entity Handling**:
+  - When an investor inquires about an unverified company, unknown organisation, or third-party individual not present in the verified dataset (e.g., *"Who can connect me to the new MD of Company X?"*), the system:
+    1. Assigns `confidence: 'UNRESOLVED'`.
+    2. Categorizes execution status as `UNKNOWN_ENTITY`.
+    3. Returns zero speculative recommendation paths.
+    4. Displays an explicit explanatory disclaimer: *"FINN does not infer or guess connections to unverified third parties."*
+- **Organisation History Traversal (`getContactsForOrganisationHistory`)**:
+  - Inspects employment records of all graph personas for current and past affiliations.
+  - Assigns 100 domain relevance for current tenure and 80 domain relevance for past tenure.
+  - Combines domain relevance with best introduction accessibility ($0.65 \times \text{Relevance} + 0.35 \times \text{Accessibility}$).
+  - Generates clear career evidence rationales (e.g., *"Current Managing Director at McKinsey & Company"*, *"Former Senior Associate at Bain & Company (2018–2021)"*).
+- **Network Copilot User Interface (`src/components/NetworkView.tsx`)**:
+  - Added primary **"Network Copilot"** query tab (`NATURAL_QUERY`) with `Sparkles` icon alongside existing discovery and directory modes.
+  - Natural query search form with auto-focus, clear button, and submission trigger.
+  - Quick-launch example query pills directly addressing all challenge specifications:
+    - *"Who can help me understand Reliance?"*
+    - *"Who has experience in the banking sector?"*
+    - *"Who understands refining margins?"*
+    - *"Who has worked at TCS?"*
+    - *"Who worked at McKinsey?"*
+    - *"Who can connect me to Vikram Sen?"*
+  - Live Interpretation Card detailing detected intent badge, confidence badge, resolved entity name, and full plain-English explanation.
+  - Dedicated Introduction Paths Box rendering `NetworkPathVisualizer` for all valid referral paths when resolving `PERSON_CONNECTION` queries.
+  - Secondary degree (`All`, `1st Degree`, `2nd Degree`) and category filters remain active across all natural query results.
+- **Automated Test Suite (`scripts/test_network_query.mjs`)**:
+  - 120 automated unit tests across 9 test categories:
+    1. Company intent recognition & alias resolution (14 tests).
+    2. Sector intent recognition & alias normalization (13 tests).
+    3. Expertise intent recognition & alias normalization (14 tests).
+    4. Organisation history intent & tenure retrieval (14 tests).
+    5. Person connection intent & path identification (15 tests).
+    6. Non-inference & unknown entity handling (14 tests).
+    7. Empty, whitespace & unrecognized queries (8 tests).
+    8. End-to-end execution pipeline & result schema (14 tests).
+    9. Mathematical reconciliation & boundary guarantees (14 tests).
+  - All 120 tests pass with zero failures.
 
 
 ---

@@ -346,6 +346,86 @@ export type NetworkQuery =
   | GeneralSearchNetworkQuery;
 
 /**
+ * Natural language network query intents supported by FINN.
+ */
+export type NetworkQueryIntentType =
+  | 'COMPANY'
+  | 'SECTOR'
+  | 'EXPERTISE'
+  | 'ORGANISATION_HISTORY'
+  | 'PERSON_CONNECTION'
+  | 'UNKNOWN';
+
+export type InterpretationConfidence = 'EXACT' | 'HIGH' | 'AMBIGUOUS' | 'UNRESOLVED';
+
+export interface BaseInterpretedQuery {
+  readonly rawQuery: string;
+  readonly intent: NetworkQueryIntentType;
+  readonly interpretationLabel: string;
+  readonly explanation: string;
+  readonly confidence: InterpretationConfidence;
+}
+
+export interface CompanyInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'COMPANY';
+  readonly ticker: string;
+  readonly companyName: string;
+}
+
+export interface SectorInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'SECTOR';
+  readonly sector: string;
+}
+
+export interface ExpertiseInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'EXPERTISE';
+  readonly expertiseQuery: string;
+}
+
+export interface OrganisationHistoryInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'ORGANISATION_HISTORY';
+  readonly organisationName: string;
+  readonly ticker?: string;
+  readonly orgId?: string;
+}
+
+export interface PersonConnectionInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'PERSON_CONNECTION';
+  readonly personName: string;
+  readonly targetPerson?: Person;
+}
+
+export interface UnknownInterpretedQuery extends BaseInterpretedQuery {
+  readonly intent: 'UNKNOWN';
+  readonly unresolvedEntity?: string;
+  readonly suggestedAlternative?: string;
+}
+
+export type InterpretedNetworkQuery =
+  | CompanyInterpretedQuery
+  | SectorInterpretedQuery
+  | ExpertiseInterpretedQuery
+  | OrganisationHistoryInterpretedQuery
+  | PersonConnectionInterpretedQuery
+  | UnknownInterpretedQuery;
+
+export type QueryExecutionStatus =
+  | 'SUCCESS'
+  | 'NO_MATCHES'
+  | 'UNKNOWN_ENTITY'
+  | 'AMBIGUOUS'
+  | 'EMPTY';
+
+export interface QueryExecutionResult {
+  readonly query: InterpretedNetworkQuery;
+  readonly recommendations: readonly ContactRecommendation[];
+  readonly personConnectionPaths?: readonly IntroductionPath[];
+  readonly status: QueryExecutionStatus;
+  readonly statusMessage: string;
+  readonly provenanceNotice: string;
+}
+
+/**
  * Summary KPI metrics for the Network Overview tab.
  * Dynamically computed from graph structure and personas.
  */
