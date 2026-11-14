@@ -4,6 +4,8 @@ import {
   NetworkValidationResult,
   Person,
   NetworkEdge,
+  ListedOrganisationRef,
+  EmploymentRecord,
 } from '../types/network';
 
 /**
@@ -1735,6 +1737,7 @@ export const NETWORK_PERSONAS: readonly Person[] = [
 export const NETWORK_EDGES: readonly NetworkEdge[] = [
   // -------------------------------------------------------------
   // 16 Direct Investor Edges (from INVESTOR_ROOT to each persona)
+  // Semantics: DIRECTED from INVESTOR_ROOT to the target persona.
   // -------------------------------------------------------------
   {
     id: 'edge-inv-arun-sharma',
@@ -1742,6 +1745,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-arun-sharma',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 4,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-09-18',
     contextAndEvidence:
       'Retained commercial advisor on downstream petrochemical crack spreads and refinery margin sensitivity models.',
@@ -1753,6 +1758,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-vikram-sen',
     relationshipType: 'FORMER_COLLEAGUE',
     connectionStrength: 5,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-10-04',
     contextAndEvidence:
       'Long-standing professional relationship spanning 12 years; former co-lead on enterprise software modernization programs.',
@@ -1764,6 +1771,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-priya-nair',
     relationshipType: 'PORTFOLIO_EXECUTIVE',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-08-22',
     contextAndEvidence:
       'Met through fund advisory discussions regarding quick commerce store unit economics and supply chain dark store density.',
@@ -1775,6 +1784,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-rohit-gupta',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 4,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-09-30',
     contextAndEvidence:
       'Consulted regularly for independent perspectives on retail credit asset quality and unsecured lending ECL provisions.',
@@ -1786,6 +1797,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-ananya-deshmukh',
     relationshipType: 'CO_INVESTOR',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-07-15',
     contextAndEvidence:
       'Interacted through fixed income institutional syndicate briefings and commercial banking treasury conferences.',
@@ -1797,6 +1810,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-siddharth-mehta',
     relationshipType: 'PROFESSIONAL_ACQUAINTANCE',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-06-12',
     contextAndEvidence:
       'Regular contact established during national telecom infrastructure summits and 5G vendor procurement roundtables.',
@@ -1808,6 +1823,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-deepa-menon',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 4,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-09-05',
     contextAndEvidence:
       'Retained for expert regulatory diligence on USFDA Form 483 inspection observations and generic pipeline viability.',
@@ -1819,6 +1836,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-karan-mehta',
     relationshipType: 'FORMER_COLLEAGUE',
     connectionStrength: 5,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-10-11',
     contextAndEvidence:
       'Close strategic advisor and former consulting colleague; collaborates on infrastructure order book analysis.',
@@ -1830,6 +1849,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-sunil-verma',
     relationshipType: 'PROFESSIONAL_ACQUAINTANCE',
     connectionStrength: 2,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-05-19',
     contextAndEvidence:
       'Met at consumer tech engineering leaders forum; exchange notes on distributed real-time computing.',
@@ -1841,6 +1862,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-radhika-iyer',
     relationshipType: 'UNIVERSITY_ALUMNI',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-08-14',
     contextAndEvidence:
       'Connected via technical institute alumni circle; consulted on large IT services vendor margin sustainability.',
@@ -1852,6 +1875,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-manish-kapoor',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-07-28',
     contextAndEvidence:
       'Provides operational perspectives on automotive component localization and raw material cost pass-through mechanisms.',
@@ -1863,6 +1888,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-neha-singh',
     relationshipType: 'PROFESSIONAL_ACQUAINTANCE',
     connectionStrength: 2,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-06-03',
     contextAndEvidence:
       'Met during Indian retail leadership conference; shared notes on Tier-2 fast-fashion store economics.',
@@ -1874,6 +1901,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-amit-tandon',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 5,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-10-18',
     contextAndEvidence:
       'Frequent collaborator on commercial due diligence, tech valuation frameworks, and corporate investment committee reviews.',
@@ -1885,6 +1914,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-kavita-iyer',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 4,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-09-24',
     contextAndEvidence:
       'Serve together on advisory panels for corporate governance, audit standards, and SEBI compliance best practices.',
@@ -1896,6 +1927,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-rajesh-kulkarni',
     relationshipType: 'CO_INVESTOR',
     connectionStrength: 4,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-08-08',
     contextAndEvidence:
       'Co-participated in credit syndicate assessments and debt restructuring review boards.',
@@ -1907,6 +1940,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-tanvi-joshi',
     relationshipType: 'CO_INVESTOR',
     connectionStrength: 3,
+    directionality: 'DIRECTED',
+    isDirected: true,
     lastInteractionDate: '2024-07-02',
     contextAndEvidence:
       'Co-evaluated growth-stage fintech balance sheets and digital payment unit economics.',
@@ -1914,7 +1949,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
   },
 
   // -------------------------------------------------------------
-  // 10 Person-to-Person Edges
+  // 10 Person-to-Person Edges (Explicitly UNDIRECTED mutual ties)
+  // Semantics: Symmetric mutual ties between peers; traversal can proceed in either direction.
   // -------------------------------------------------------------
   {
     id: 'edge-p2p-sen-radhika',
@@ -1922,6 +1958,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-radhika-iyer',
     relationshipType: 'FORMER_COLLEAGUE',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-09-12',
     contextAndEvidence:
       'Collaborated on cross-enterprise IT transformation frameworks and global delivery governance while working across tier-1 Indian IT services firms.',
@@ -1933,6 +1971,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-amit-tandon',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-10-02',
     contextAndEvidence:
       'Joint steering committee members for enterprise digital transformation and AI commercialization initiatives.',
@@ -1944,6 +1984,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-sunil-verma',
     relationshipType: 'FORMER_COLLEAGUE',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-08-30',
     contextAndEvidence:
       'Collaborated closely across product and platform engineering teams on real-time order dispatch and dark store inventory synchronization.',
@@ -1955,6 +1997,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-amit-tandon',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 3,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-07-19',
     contextAndEvidence:
       'Consulted on quick commerce dark store profitability benchmarks and customer retention economics.',
@@ -1966,6 +2010,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-ananya-deshmukh',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 3,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-06-25',
     contextAndEvidence:
       'Co-participants on industry retail banking credit risk panels and asset-liability management working groups.',
@@ -1977,6 +2023,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-kavita-iyer',
     relationshipType: 'INDUSTRY_ADVISOR',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-09-14',
     contextAndEvidence:
       'Collaborated on regulatory audit governance, clinical compliance oversight, and pharmaceutical M&A disclosure standards.',
@@ -1988,6 +2036,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-manish-kapoor',
     relationshipType: 'UNIVERSITY_ALUMNI',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-08-11',
     contextAndEvidence:
       'Long-standing technical institute alumni contact; exchange operational perspectives on capital goods procurement and domestic manufacturing supply chains.',
@@ -1999,6 +2049,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-amit-tandon',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 5,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-10-15',
     contextAndEvidence:
       'Co-authored strategic infrastructure investment briefings and participated in industrial manufacturing competitiveness roundtables.',
@@ -2010,6 +2062,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-rajesh-kulkarni',
     relationshipType: 'BOARD_PEER',
     connectionStrength: 4,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-08-20',
     contextAndEvidence:
       'Collaborated on creditor committee legal governance, IBC distressed asset auctions, and resolution plan compliance.',
@@ -2021,6 +2075,8 @@ export const NETWORK_EDGES: readonly NetworkEdge[] = [
     targetNodeId: 'person-amit-tandon',
     relationshipType: 'CO_INVESTOR',
     connectionStrength: 3,
+    directionality: 'UNDIRECTED',
+    isDirected: false,
     lastInteractionDate: '2024-07-10',
     contextAndEvidence:
       'Co-evaluated private market fintech commercial due diligence and payment gateway unit economics.',
@@ -2044,8 +2100,33 @@ export const NETWORK_DATASET: NetworkDataset = {
 };
 
 /**
- * Validates the network dataset against all 18 structural and domain integrity constraints.
- * Returns a NetworkValidationResult with failures list.
+ * Validates whether a date string strictly follows supported YYYY or YYYY-MM format.
+ * Rejects non-strings, malformed formats, and invalid calendar months (e.g. 2020-13 or 2020-00).
+ */
+export function isValidDateFormat(dateStr: unknown): boolean {
+  if (typeof dateStr !== 'string') return false;
+  const match = dateStr.match(/^(\d{4})(?:-(0[1-9]|1[0-2]))?$/);
+  if (!match) return false;
+  const year = parseInt(match[1], 10);
+  return year >= 1900 && year <= 2100;
+}
+
+/**
+ * Parses a valid YYYY or YYYY-MM date string into an integer comparable (YYYYMM).
+ * For start dates without a month, defaults to month 01.
+ * For end dates without a month, defaults to month 12.
+ */
+export function parseDateToComparable(dateStr: string, isEnd = false): number | null {
+  if (!isValidDateFormat(dateStr)) return null;
+  const parts = dateStr.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parts.length === 2 ? parseInt(parts[1], 10) : (isEnd ? 12 : 1);
+  return year * 100 + month;
+}
+
+/**
+ * Validates the network dataset against all structural, domain, and data-integrity constraints.
+ * Returns a NetworkValidationResult with complete list of failure diagnostics.
  */
 export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidationResult {
   const failures: string[] = [];
@@ -2070,9 +2151,9 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
     }
     personIdSet.add(person.id);
 
-    // 12. Global ID uniqueness check
+    // Global ID uniqueness across all categories
     if (allIdsSet.has(person.id)) {
-      failures.push(`Non-unique ID across dataset: '${person.id}'`);
+      failures.push(`Duplicate ID detected across dataset: '${person.id}'`);
     }
     allIdsSet.add(person.id);
 
@@ -2084,24 +2165,57 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
       failures.push(`Person '${person.id}' must have isSynthetic === true`);
     }
 
-    // 5 & 6 & 7 & 8: Employment record checks
+    // Employment record checks
     let currentRoleCount = 0;
+    let currentEmpRecord: EmploymentRecord | null = null;
+    const previousEmpRecords: EmploymentRecord[] = [];
+
     for (const emp of person.employmentHistory) {
       if (allIdsSet.has(emp.id)) {
-        failures.push(`Non-unique ID across dataset: '${emp.id}'`);
+        failures.push(`Duplicate ID detected across dataset: '${emp.id}'`);
       }
       allIdsSet.add(emp.id);
 
+      // Validate startDate format strictly
+      if (!isValidDateFormat(emp.startDate)) {
+        failures.push(`Invalid startDate format '${emp.startDate}' in employment '${emp.id}' of person '${person.id}'. Expected YYYY or YYYY-MM.`);
+      }
+
       if (emp.isCurrent) {
         currentRoleCount += 1;
+        currentEmpRecord = emp;
+
+        // Current role must strictly have endDate === null
         if (emp.endDate !== null) {
           failures.push(`Current employment '${emp.id}' of person '${person.id}' must have endDate === null`);
+
+          // If an endDate was provided anyway, check format and chronological ordering
+          if (emp.endDate !== undefined && !isValidDateFormat(emp.endDate)) {
+            failures.push(`Invalid endDate format '${emp.endDate}' in employment '${emp.id}' of person '${person.id}'. Expected YYYY or YYYY-MM.`);
+          } else if (isValidDateFormat(emp.startDate) && isValidDateFormat(emp.endDate)) {
+            const startComp = parseDateToComparable(emp.startDate, false)!;
+            const endComp = parseDateToComparable(emp.endDate, true)!;
+            if (startComp > endComp) {
+              failures.push(`Current employment '${emp.id}' of person '${person.id}' has reversed dates: startDate (${emp.startDate}) is after endDate (${emp.endDate})`);
+            }
+          }
         }
       } else {
-        if (emp.endDate === null) {
-          failures.push(`Non-current employment '${emp.id}' of person '${person.id}' must have non-null endDate`);
-        } else if (emp.startDate > emp.endDate) {
-          failures.push(`Employment '${emp.id}' of person '${person.id}' has startDate (${emp.startDate}) after endDate (${emp.endDate})`);
+        previousEmpRecords.push(emp);
+
+        // Previous role must have non-null endDate
+        if (emp.endDate === null || emp.endDate === undefined) {
+          failures.push(`Non-current employment '${emp.id}' of person '${person.id}' must have a non-null endDate`);
+        } else {
+          if (!isValidDateFormat(emp.endDate)) {
+            failures.push(`Invalid endDate format '${emp.endDate}' in employment '${emp.id}' of person '${person.id}'. Expected YYYY or YYYY-MM.`);
+          } else if (isValidDateFormat(emp.startDate)) {
+            const startComp = parseDateToComparable(emp.startDate, false)!;
+            const endComp = parseDateToComparable(emp.endDate, true)!;
+            if (startComp > endComp) {
+              failures.push(`Previous employment '${emp.id}' of person '${person.id}' has reversed dates: startDate (${emp.startDate}) is after endDate (${emp.endDate})`);
+            }
+          }
         }
       }
 
@@ -2113,14 +2227,63 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
       }
     }
 
-    if (currentRoleCount > 1) {
-      failures.push(`Person '${person.id}' has ${currentRoleCount} current roles (maximum 1 permitted)`);
+    // Career chronology check: current role should start after/with earlier roles
+    if (currentEmpRecord && isValidDateFormat(currentEmpRecord.startDate)) {
+      const currentStartComp = parseDateToComparable(currentEmpRecord.startDate, false)!;
+      for (const prev of previousEmpRecords) {
+        if (isValidDateFormat(prev.startDate)) {
+          const prevStartComp = parseDateToComparable(prev.startDate, false)!;
+          if (currentStartComp < prevStartComp) {
+            failures.push(`Current employment '${currentEmpRecord.id}' of person '${person.id}' has reversed career dates: startDate (${currentEmpRecord.startDate}) is before previous role '${prev.id}' startDate (${prev.startDate})`);
+          }
+        }
+      }
     }
 
-    // 9 & 10: Education record checks
+    // Current employment consistency checks
+    if (currentRoleCount > 1) {
+      failures.push(`Person '${person.id}' has ${currentRoleCount} current roles (maximum 1 permitted)`);
+    } else if (currentRoleCount === 0) {
+      if (person.currentOrganisation !== undefined || person.currentRoleTitle !== undefined) {
+        failures.push(`Person '${person.id}' has no current employment record, but currentOrganisation or currentRoleTitle is specified`);
+      }
+    } else if (currentRoleCount === 1 && currentEmpRecord) {
+      // Must match currentRoleTitle
+      if (!person.currentRoleTitle) {
+        failures.push(`Person '${person.id}' has a current employment record but missing currentRoleTitle`);
+      } else if (person.currentRoleTitle !== currentEmpRecord.roleTitle) {
+        failures.push(`Person '${person.id}' currentRoleTitle ('${person.currentRoleTitle}') does not match current employment roleTitle ('${currentEmpRecord.roleTitle}')`);
+      }
+
+      // Must match currentOrganisation
+      if (!person.currentOrganisation) {
+        failures.push(`Person '${person.id}' has a current employment record but missing currentOrganisation`);
+      } else {
+        let orgMatches = true;
+        if (person.currentOrganisation.type !== currentEmpRecord.organisation.type) {
+          orgMatches = false;
+        } else if (person.currentOrganisation.name !== currentEmpRecord.organisation.name) {
+          orgMatches = false;
+        } else if (person.currentOrganisation.type === 'LISTED_NSE_BSE') {
+          const pOrg = person.currentOrganisation as ListedOrganisationRef;
+          const eOrg = currentEmpRecord.organisation as ListedOrganisationRef;
+          if (pOrg.ticker !== eOrg.ticker) orgMatches = false;
+        } else {
+          const pOrg = person.currentOrganisation as any;
+          const eOrg = currentEmpRecord.organisation as any;
+          if (pOrg.orgId !== eOrg.orgId) orgMatches = false;
+        }
+
+        if (!orgMatches) {
+          failures.push(`Person '${person.id}' currentOrganisation does not match current employment organisation`);
+        }
+      }
+    }
+
+    // Education record checks
     for (const edu of person.educationHistory) {
       if (allIdsSet.has(edu.id)) {
-        failures.push(`Non-unique ID across dataset: '${edu.id}'`);
+        failures.push(`Duplicate ID detected across dataset: '${edu.id}'`);
       }
       allIdsSet.add(edu.id);
 
@@ -2128,20 +2291,29 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
         failures.push(`Education '${edu.id}' institution type must be 'EDUCATIONAL_INSTITUTION', got '${edu.institution.type}'`);
       }
 
-      if (edu.startYear !== undefined && edu.endYear !== undefined) {
+      const validStartYear =
+        edu.startYear === undefined ||
+        (Number.isInteger(edu.startYear) && edu.startYear >= 1900 && edu.startYear <= 2100);
+      const validEndYear =
+        edu.endYear === undefined ||
+        (Number.isInteger(edu.endYear) && edu.endYear >= 1900 && edu.endYear <= 2100);
+
+      if (!validStartYear || !validEndYear) {
+        failures.push(`Education '${edu.id}' of person '${person.id}' has invalid year values (startYear: ${edu.startYear}, endYear: ${edu.endYear})`);
+      } else if (edu.startYear !== undefined && edu.endYear !== undefined) {
         if (edu.startYear > edu.endYear) {
-          failures.push(`Education '${edu.id}' has startYear (${edu.startYear}) > endYear (${edu.endYear})`);
+          failures.push(`Education '${edu.id}' of person '${person.id}' has reversed years: startYear (${edu.startYear}) > endYear (${edu.endYear})`);
         }
       }
     }
 
-    // 11. Expertise tags check
+    // Expertise tags check
     if (!person.expertise || person.expertise.length === 0) {
       failures.push(`Person '${person.id}' must have at least one expertise tag`);
     }
     for (const exp of person.expertise) {
       if (allIdsSet.has(exp.id)) {
-        failures.push(`Non-unique ID across dataset: '${exp.id}'`);
+        failures.push(`Duplicate ID detected across dataset: '${exp.id}'`);
       }
       allIdsSet.add(exp.id);
     }
@@ -2154,16 +2326,16 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
 
   for (const edge of dataset.edges) {
     if (allIdsSet.has(edge.id)) {
-      failures.push(`Non-unique ID across dataset: '${edge.id}'`);
+      failures.push(`Duplicate ID detected across dataset: '${edge.id}'`);
     }
     allIdsSet.add(edge.id);
 
-    // 17. No self-edges
+    // No self-edges
     if (edge.sourceNodeId === edge.targetNodeId) {
       failures.push(`Self-edge detected: '${edge.id}' has sourceNodeId === targetNodeId ('${edge.sourceNodeId}')`);
     }
 
-    // 18. Connection strength 1-5
+    // Connection strength 1-5
     if (
       !Number.isInteger(edge.connectionStrength) ||
       edge.connectionStrength < 1 ||
@@ -2172,7 +2344,18 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
       failures.push(`Edge '${edge.id}' has invalid connectionStrength ${edge.connectionStrength} (must be integer 1-5)`);
     }
 
-    // 16. Valid endpoints
+    // Directionality invariants
+    if (edge.sourceNodeId === 'INVESTOR_ROOT') {
+      if (edge.directionality !== 'DIRECTED' || edge.isDirected !== true) {
+        failures.push(`Investor edge '${edge.id}' must be DIRECTED with isDirected === true`);
+      }
+    } else {
+      if (edge.directionality !== 'UNDIRECTED' || edge.isDirected !== false) {
+        failures.push(`Person-to-person edge '${edge.id}' must be UNDIRECTED with isDirected === false`);
+      }
+    }
+
+    // Valid endpoints
     const isSourceInvestor = edge.sourceNodeId === 'INVESTOR_ROOT';
     const isSourcePerson = personIdSet.has(edge.sourceNodeId);
     const isTargetPerson = personIdSet.has(edge.targetNodeId);
@@ -2194,19 +2377,19 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
     }
   }
 
-  // 13. Exactly 16 direct investor edges
+  // Exactly 16 direct investor edges
   if (directInvestorEdges !== 16) {
     failures.push(`Expected exactly 16 direct investor edges, found ${directInvestorEdges}`);
   }
 
-  // 14. Every person connected directly to INVESTOR_ROOT
+  // Every person connected directly to INVESTOR_ROOT
   for (const person of dataset.people) {
     if (!connectedToInvestor.has(person.id)) {
       failures.push(`Person '${person.id}' does not have a direct edge connecting from 'INVESTOR_ROOT'`);
     }
   }
 
-  // 15. At least 8 P2P edges
+  // At least 8 P2P edges
   if (personToPersonEdges < 8) {
     failures.push(`Expected at least 8 person-to-person edges, found ${personToPersonEdges}`);
   }
@@ -2220,3 +2403,4 @@ export function validateNetworkDataset(dataset: NetworkDataset): NetworkValidati
     failures,
   };
 }
+

@@ -161,10 +161,17 @@ export type RelationshipType =
 
 export type ConnectionStrength = 1 | 2 | 3 | 4 | 5;
 
+export type EdgeDirectionality = 'DIRECTED' | 'UNDIRECTED';
+
 /**
  * Explicit connection between two nodes in the network graph.
  * In FINN, relationship edges are strictly explicit; they are NEVER
  * inferred automatically from shared employment or education.
+ *
+ * Directionality semantics:
+ * - Investor-to-person edges (sourceNodeId === 'INVESTOR_ROOT') are DIRECTED (isDirected: true).
+ * - Person-to-person edges (between two Person.id nodes) are explicitly UNDIRECTED (isDirected: false),
+ *   representing mutual professional relationships for second-degree referral pathfinding.
  */
 export interface NetworkEdge {
   readonly id: string;
@@ -172,6 +179,8 @@ export interface NetworkEdge {
   readonly targetNodeId: string; // Person.id
   readonly relationshipType: RelationshipType;
   readonly connectionStrength: ConnectionStrength;
+  readonly directionality: EdgeDirectionality;
+  readonly isDirected: boolean;
   readonly lastInteractionDate?: string; // 'YYYY-MM-DD'
   readonly contextAndEvidence: string;   // Narrative justification for the edge
   readonly sharedContextOrg?: OrganisationRef; // Organisation where relationship formed

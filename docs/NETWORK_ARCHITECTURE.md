@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Approved for Review (Phase 1, Step 1 Design Specification)  
+**Status:** Phase 1, Step 2.1 Complete — Domain Model & Validator Hardened  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `24fd8d7`
+**Current Commit:** `fafb2f34a2c0f5e7ae078a2c62f13def76328c56`
 
 ---
 
@@ -269,21 +269,28 @@ export type RelationshipType =
   | 'CO_INVESTOR'              // Participated in syndicate or co-investment
   | 'PROFESSIONAL_ACQUAINTANCE';// Regular conference/industry contact
 
+export type ConnectionStrength = 1 | 2 | 3 | 4 | 5;
+
+export type EdgeDirectionality = 'DIRECTED' | 'UNDIRECTED';
+
 /**
- * Explicit connection between two nodes.
- * Connection strength:
- * 1 = Distant acquaintance (infrequent contact, limited rapport)
- * 2 = Established contact (occasional interactions, reliable response)
- * 3 = Strong professional tie (frequent communication, solid mutual trust)
- * 4 = High-trust collaborator (close working history, deep relationship)
- * 5 = Inner-circle confidant (exceptional trust, immediate access, strategic alignment)
+ * Explicit connection between two nodes in the network graph.
+ * In FINN, relationship edges are strictly explicit; they are NEVER
+ * inferred automatically from shared employment or education.
+ *
+ * Directionality semantics:
+ * - Investor-to-person edges (sourceNodeId === 'INVESTOR_ROOT') are DIRECTED (isDirected: true).
+ * - Person-to-person edges (between two Person.id nodes) are explicitly UNDIRECTED (isDirected: false),
+ *   representing mutual professional relationships for second-degree referral pathfinding.
  */
 export interface NetworkEdge {
   id: string;
   sourceNodeId: string;        // 'INVESTOR_ROOT' for direct investor relationships, or a Person.id
   targetNodeId: string;        // Person.id
   relationshipType: RelationshipType;
-  connectionStrength: 1 | 2 | 3 | 4 | 5;
+  connectionStrength: ConnectionStrength;
+  directionality: EdgeDirectionality;
+  isDirected: boolean;
   lastInteractionDate?: string;// 'YYYY-MM-DD'
   contextAndEvidence: string;  // Explicit explanation justifying the edge
   sharedContextOrg?: OrganisationRef; // Shared employer or board where the relationship was built
@@ -305,21 +312,24 @@ This compile-time discrimination prevents invalid combinations (such as listed e
 
 ## 5. Relationship Graph Representation
 
-### 5.1 Root Node Convention
+### 5.1 Root Node Convention & Edge Directionality
 The investor is represented as the single root node:
 - **`INVESTOR_ROOT`**: Represents the authenticated investor user ("You").
 - Direct investor connections are edges where `sourceNodeId === 'INVESTOR_ROOT'`.
 - All other connections are edges between two `Person.id` nodes.
+- **Directionality Convention**:
+  - **Investor-to-Person Edges**: Strictly **DIRECTED** (`sourceNodeId: 'INVESTOR_ROOT'`, `directionality: 'DIRECTED'`, `isDirected: true`). Represents the investor's direct reach to known contacts.
+  - **Person-to-Person Edges**: Explicitly **UNDIRECTED** (`directionality: 'UNDIRECTED'`, `isDirected: false`). Represents mutual professional relationships between peers; second-degree introduction paths traverse symmetrically regardless of which node was defined as source or target.
 
 ```
        [ INVESTOR_ROOT ] ("You")
          │           │
-Strength │ 5         │ 4 (Direct 1st-Degree)
+Strength │ 5         │ 4 (Direct 1st-Degree, DIRECTED)
          ▼           ▼
    [ Person A ]   [ Person B ]
    (Ex-RIL VP)    (Partner, Top Tier VC)
          │
-Strength │ 4 (2nd-Degree Reachability)
+Strength │ 4 (2nd-Degree Mutual Peer Tie, UNDIRECTED)
          ▼
    [ Person C ]
    (Current CFO, Listed Competitor)
@@ -562,7 +572,7 @@ src/
 ├── types/
 │   └── network.ts            # Domain interfaces (Person, Edge, Expertise, Recommendation)
 ├── data/
-│   └── networkData.ts        # Synthetic dataset (12-15 personas, ~30 explicit edges)
+│   └── networkData.ts        # Synthetic dataset (16 personas, 26 explicit edges: 16 direct, 10 person-to-person)
 ├── services/
 │   └── networkService.ts     # Graph indexing, BFS pathfinding, recommendation scoring
 └── components/
@@ -587,20 +597,20 @@ src/
 
 ## 12. Implementation Sequence & Status
 
-To ensure disciplined execution without regressions, the implementation follows a strict phased roadmap:
+To ensure disciplined execution without regressions, the implementation follows a strict six-step roadmap:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Phase 1, Step 1: Architectural Design & Domain Model Specification (COMPLETE)│
-│ Deliverable: docs/NETWORK_ARCHITECTURE.md (Design Only)                    │
+│ Deliverable: docs/NETWORK_ARCHITECTURE.md (Design Specification)           │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
 │ Phase 1, Step 2: Domain Types & Synthetic Dataset Authoring (COMPLETE)      │
-│ • Implemented src/types/network.ts with discriminated unions               │
+│ • Implemented src/types/network.ts with discriminated unions & directionality│
 │ • Created 16-persona synthetic dataset in src/data/networkData.ts           │
-│ • Authored automated validation function (18 strict integrity checks)       │
-│ • Added unit test suite in scripts/test_network_dataset.mjs (52 passing)   │
+│ • Step 2.1 Hardened validation: date regex, chronology & consistency checks │
+│ • Automated unit test suite in scripts/test_network_dataset.mjs (98 passing)│
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
@@ -611,48 +621,49 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 4: UI Components & System Integration                         │
-│ • Build standalone NetworkView component                                    │
+│ Phase 1, Step 4: Standalone Network UI & Navigation                         │
+│ • Build standalone NetworkView component with search & degree filters       │
 │ • Integrate navigation in App.tsx and Header.tsx                            │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│ Phase 1, Step 5: Contextual Intelligence Integration (Push & Pull)          │
 │ • Embed company contact recommendations in ResearchCopilot.tsx              │
 │ • Enrich corporate announcements in AnnouncementFeed.tsx                    │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 5: End-to-End Verification, Visual Audit & Hardening          │
-│ • Cross-browser verification and responsive testing                         │
-│ • Verification across all existing test suites                              │
+│ Phase 1, Step 6: End-to-End Verification, Visual Audit & Submission Hardening│
+│ • Cross-browser verification, responsive layout audit & WCAG compliance     │
+│ • Full regression verification across all test suites                       │
 │ • Final documentation review and submission package                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 12.1 Phase 1 Step 2 Completed Dataset Specification & Validation Results
-- **Dataset Scale**: Exactly 16 detailed personas (`NETWORK_PERSONAS`), 16 direct investor edges (`INVESTOR_ROOT` $\rightarrow$ Person), and 10 person-to-person edges (total 26 edges).
+### 12.1 Phase 1 Steps 2 & 2.1 Completed Dataset Specification & Hardened Validation
+- **Dataset Scale**: Exactly 16 detailed personas (`NETWORK_PERSONAS`), 32 employment records, 21 education records, 48 expertise tags, 16 direct investor edges (`INVESTOR_ROOT` $\rightarrow$ Person), and 10 person-to-person edges (total 26 edges).
 - **Provenance Standard**: 100% of persona and relationship records explicitly carry `provenance: 'SYNTHETIC'` and `isSynthetic: true`.
 - **Equity Registry Grounding**: 24 listed employment records reference verified canonical tickers from `LOCAL_VERIFIED_SYMBOL_REGISTRY` (covering `RELIANCE`, `TCS`, `INFY`, `SWIGGY`, `ZOMATO`, `BAJFINANCE`, `HDFCBANK`, `ICICIBANK`, `SBIN`, `BHARTIARTL`, `IDEA`, `SUNPHARMA`, `DRREDDY`, `LT`, `WIPRO`, `MARUTI`, `TATAMOTORS`, `TRENT`, `HINDUNILVR`, `PAYTM`). Zero unindexed phantom tickers.
+- **Relationship Directionality Semantics**:
+  - Direct investor edges (16): Explicitly typed with `directionality: 'DIRECTED'` and `isDirected: true`.
+  - Person-to-person edges (10): Explicitly typed with `directionality: 'UNDIRECTED'` and `isDirected: false`. Enables symmetric 2nd-degree referral traversal across mutual peer ties.
 - **Reachability Guarantees**:
   - Direct (1st-degree): 16 of 16 personas ($100\%$) directly reachable from `INVESTOR_ROOT`.
-  - 2nd-degree paths: 13 distinct personas are reachable via 2 hops through intermediate peers (`person-vikram-sen`, `person-priya-nair`, `person-karan-mehta`, `person-amit-tandon`, `person-kavita-iyer`), exceeding the $\ge 8$ requirement.
-- **Automated Validation**: `validateNetworkDataset(NETWORK_DATASET)` strictly validates 18 integrity rules:
-  1. Exactly 16 personas.
-  2. Non-empty IDs starting with `person-`.
-  3. Unique persona IDs.
-  4. Provenance strictly `SYNTHETIC` and `isSynthetic === true`.
-  5. At most one current employment record (`isCurrent: true`, `endDate: null`).
-  6. Non-current roles require `endDate !== null`.
-  7. Chronological dates (`startDate <= endDate`).
-  8. Listed tickers exist in `LOCAL_VERIFIED_SYMBOL_REGISTRY`.
-  9. Education institution type is `EDUCATIONAL_INSTITUTION`.
-  10. Education years chronological (`startYear <= endYear`).
-  11. At least one structured expertise tag per persona.
-  12. Global ID uniqueness across all personas, employment records, education records, expertise tags, and edges.
-  13. Exactly 16 direct investor edges from `INVESTOR_ROOT`.
-  14. Every persona has a direct edge to `INVESTOR_ROOT`.
-  15. At least 8 person-to-person edges (10 implemented).
-  16. All edge source and target IDs reference valid, known nodes.
-  17. Zero self-edges (`sourceNodeId !== targetNodeId`).
-  18. Edge connection strength is an integer between 1 and 5.
-- **Test Suite**: `scripts/test_network_dataset.mjs` executes 52 assertion tests via `jiti`, verifying production dataset validity (0 failures), metadata counts, 1st and 2nd degree reachability, ticker provenance, and rejection of 7 corrupted edge cases (duplicate ID, invalid ticker, dangling edge, invalid strength, multiple current roles, non-synthetic provenance, self-edge).
+  - 2nd-degree paths: 13 distinct personas are reachable via 2 hops through intermediate peers (`person-vikram-sen`, `person-priya-nair`, `person-karan-mehta`, `person-amit-tandon`, `person-kavita-iyer`, `person-deepa-menon`, `person-rohit-gupta`, `person-tanvi-joshi`), exceeding the $\ge 8$ requirement.
+- **Hardened Validation Architecture (`validateNetworkDataset`)**:
+  1. **Strict Date Format**: Start and end dates validated via regex (`YYYY` or `YYYY-MM`), rejecting non-strings, text dates, and out-of-bounds months (e.g. `2020-13`, `2020-00`).
+  2. **Chronological Ordering**: Numeric integer comparison (`YYYYMM`) enforcing `startDate <= endDate` for previous roles and intra-record checks.
+  3. **Career Chronology**: Verifies current role `startDate >= previousRole.startDate`.
+  4. **Strict `isCurrent` / `endDate` Correspondence**: Enforces bidirectional contract: `isCurrent === true` strictly corresponds to `endDate === null`; `isCurrent === false` strictly corresponds to `endDate !== null`.
+  5. **Current Employment Consistency**:
+     - At most 1 current employment record per persona.
+     - When 1 current record exists, `currentOrganisation` (type, name, and ticker/orgId) and `currentRoleTitle` must match the current employment record.
+     - When 0 current records exist, `currentOrganisation` and `currentRoleTitle` must remain undefined.
+  6. **Education Year Bounds**: Validates integer years within 1900–2100 and enforces `startYear <= endYear`.
+  7. **Directionality Invariants**: Enforces `INVESTOR_ROOT` edges are `DIRECTED` (`isDirected: true`) and P2P edges are `UNDIRECTED` (`isDirected: false`).
+  8. **Cross-Category ID Uniqueness**: Enforces global uniqueness across personas, employment records, education records, expertise tags, and edges.
+  9. **Registry & Structural Invariants**: Preserves 16 personas, 16 direct edges, $\ge 8$ P2P edges, valid endpoints, no self-edges, connection strengths 1–5, and canonical ticker validation.
+- **Automated Test Suite**: `scripts/test_network_dataset.mjs` executes 98 unit tests via `jiti`, verifying production dataset validity (0 failures) and rejecting 17 corrupted edge-case variations.
 - **Validation Execution**: `validateNetworkDataset(NETWORK_DATASET)` returns `isValid: true` with 0 failures.
 
 ---
@@ -686,4 +697,4 @@ To ensure disciplined execution without regressions, the implementation follows 
 - [x] Decouples relationship accessibility (strength & hops) from professional domain relevance.
 - [x] Enforces strict `SYNTHETIC` provenance tags for prototype safety.
 - [x] Requires zero external graph database dependencies; perfectly compatible with Vite + React SPA.
-- [x] Completely documentation-only: zero application code or runtime behavior altered in this step.
+- [x] Implementation scoped strictly to domain types, dataset, and validator: zero alteration to existing portfolio, research, or announcement runtime behavior.
