@@ -34,6 +34,7 @@ const {
   calculateExpertiseRelevance,
   calculateOverallScore,
   calculateScoreBreakdown,
+  sanitizeScore,
   getContactsForCompany,
   getContactsForSector,
   getContactsForExpertise,
@@ -155,6 +156,73 @@ assertThrows(() => {
   graph.rootInvestorId = 'HACKED';
 }, 'Modifying graph.rootInvestorId throws TypeError');
 
+// Adversarial deep immutability tests (Step 3.2 Hardening)
+// 1. Shallow-frozen parent with mutable nested child
+const mutableChild = { role: 'analyst', tags: ['equities'] };
+const shallowParent = Object.freeze({ child: mutableChild });
+assert(Object.isFrozen(shallowParent) === true, 'Parent is initially shallow-frozen');
+assert(Object.isFrozen(mutableChild) === false, 'Child is initially unfrozen');
+deepFreeze(shallowParent);
+assert(Object.isFrozen(mutableChild) === true, 'deepFreeze traverses and freezes child of already shallow-frozen parent');
+assert(Object.isFrozen(mutableChild.tags) === true, 'deepFreeze freezes nested array of shallow-frozen parent');
+assertThrows(() => {
+  mutableChild.role = 'mutated';
+}, 'Mutating child property throws TypeError');
+assertThrows(() => {
+  mutableChild.tags.push('fixed-income');
+}, 'Mutating child array throws TypeError');
+
+// 2. Nested symbol-keyed object
+const symKey = Symbol('privateMetadata');
+const symChild = { credentialId: 'synthetic-001' };
+const objWithSymbol = { [symKey]: symChild, title: 'Profile' };
+deepFreeze(objWithSymbol);
+assert(Object.isFrozen(objWithSymbol) === true, 'Object with symbol key is frozen');
+assert(Object.isFrozen(symChild) === true, 'Symbol-keyed nested object is frozen');
+assertThrows(() => {
+  symChild.credentialId = 'mutated';
+}, 'Mutating symbol-keyed object throws TypeError');
+
+// 3. Cyclic object graph (cycle protection via WeakSet)
+const cyclicNodeA = { id: 'node-a' };
+const cyclicNodeB = { id: 'node-b', refA: cyclicNodeA };
+cyclicNodeA.refB = cyclicNodeB;
+deepFreeze(cyclicNodeA);
+assert(Object.isFrozen(cyclicNodeA) === true, 'Cyclic node A is frozen without infinite recursion');
+assert(Object.isFrozen(cyclicNodeB) === true, 'Cyclic node B is frozen without infinite recursion');
+assertThrows(() => {
+  cyclicNodeA.id = 'mutated-a';
+}, 'Mutating cyclic node A throws TypeError');
+assertThrows(() => {
+  cyclicNodeB.id = 'mutated-b';
+}, 'Mutating cyclic node B throws TypeError');
+
+// 4. Map and Set handling (rejection of mutable Map/Set, deep-freezing of ReadOnlyMap values)
+assertThrows(() => {
+  deepFreeze(new Map([['k', 'v']]));
+}, 'deepFreeze rejects mutable standard Map', 'deepFreeze rejects mutable Map and Set instances');
+
+assertThrows(() => {
+  deepFreeze(new Set(['item']));
+}, 'deepFreeze rejects mutable standard Set', 'deepFreeze rejects mutable Map and Set instances');
+
+assertThrows(() => {
+  deepFreeze({ nestedMap: new Map() });
+}, 'deepFreeze rejects nested mutable Map', 'deepFreeze rejects mutable Map and Set instances');
+
+assertThrows(() => {
+  deepFreeze({ nestedSet: new Set() });
+}, 'deepFreeze rejects nested mutable Set', 'deepFreeze rejects mutable Map and Set instances');
+
+const romChildObj = { portfolioName: 'Core Growth' };
+const testRom = new ReadOnlyMap([['p1', romChildObj]]);
+deepFreeze(testRom);
+assert(Object.isFrozen(testRom) === true, 'ReadOnlyMap instance is frozen');
+assert(Object.isFrozen(romChildObj) === true, 'deepFreeze recursively freezes values stored in ReadOnlyMap');
+assertThrows(() => {
+  romChildObj.portfolioName = 'Mutated';
+}, 'Mutating object inside ReadOnlyMap throws TypeError');
+
 // Input dataset immutability
 const originalPeopleCount = NETWORK_DATASET.people.length;
 const originalEdgeCount = NETWORK_DATASET.edges.length;
@@ -227,6 +295,21 @@ assert(isSectorMatch('Services', 'Services') === false, 'Generic word "Services"
 assert(isSectorMatch('Technology', 'Technology') === false, 'Generic word "Technology" without registered cluster does not match');
 assert(isSectorMatch('', 'Information Technology') === false, 'Empty string does not match');
 assert(isSectorMatch('Information Technology', '') === false, 'Empty target does not match');
+
+// Step 3.2 Hardening: Unambiguous Energy aliases (Positive tests)
+assert(isSectorMatch('Energy', 'Energy') === true, 'Exact "Energy" matches "Energy"');
+assert(isSectorMatch('energy', 'ENERGY') === true, 'Case-insensitive "energy" matches "ENERGY"');
+assert(isSectorMatch('Energy & Petrochemicals', 'Energy') === true, 'Energy & Petrochemicals matches Energy');
+assert(isSectorMatch('Oil & Gas Refining & Marketing', 'Energy') === true, 'Oil & Gas Refining & Marketing matches Energy');
+assert(isSectorMatch('Energy & Industrials Advisory', 'Energy') === true, 'Energy & Industrials Advisory matches Energy');
+
+// Step 3.2 Hardening: Ambiguous & multi-sector labels must NOT be classified as Energy (Negative tests)
+assert(isSectorMatch('Energy, Retail & Telecommunications', 'Energy') === false, 'Multi-sector "Energy, Retail & Telecommunications" does NOT match Energy');
+assert(isSectorMatch('Conglomerate / Energy', 'Energy') === false, 'Ambiguous "Conglomerate / Energy" does NOT match Energy');
+assert(isSectorMatch('Conglomerate', 'Energy') === false, 'Conglomerate does NOT match Energy');
+assert(isSectorMatch('Diversified Conglomerate', 'Energy') === false, 'Diversified Conglomerate does NOT match Energy');
+assert(isSectorMatch('Consumer Goods & Internet Services', 'Consumer Services') === false, 'Multi-sector "Consumer Goods & Internet Services" does NOT match Consumer Services');
+assert(isSectorMatch('Consumer Goods & Internet Services', 'Consumer Staples') === false, 'Multi-sector "Consumer Goods & Internet Services" does NOT match Consumer Staples');
 
 // -------------------------------------------------------------
 // 3. Pathfinding & Accessibility
@@ -362,6 +445,92 @@ assert(bZero.overallScore === 0, 'Zero relevance strictly yields overallScore = 
 assert(bZero.weightedRelevanceContribution === 0, 'Zero relevance has 0 weighted relevance');
 assert(bZero.weightedAccessibilityContribution === 0, 'Zero relevance has 0 weighted accessibility');
 
+// Step 3.2 Hardening: Exhaustive test over all 10,201 integer relevance/accessibility pairs (0-100)
+let exhaustivePairs = 0;
+let exhaustiveIdentityFailures = 0;
+let exhaustiveRangeFailures = 0;
+let zeroRelevanceFailures = 0;
+
+for (let r = 0; r <= 100; r++) {
+  for (let a = 0; a <= 100; a++) {
+    exhaustivePairs++;
+    const breakdown = calculateScoreBreakdown(r, a);
+
+    if (breakdown.overallScore < 0 || breakdown.overallScore > 100) {
+      exhaustiveRangeFailures++;
+    }
+
+    if (r === 0) {
+      if (
+        breakdown.overallScore !== 0 ||
+        breakdown.weightedRelevanceContribution !== 0 ||
+        breakdown.weightedAccessibilityContribution !== 0 ||
+        breakdown.roundingAdjustment !== 0
+      ) {
+        zeroRelevanceFailures++;
+      }
+    } else {
+      const reconciled =
+        breakdown.weightedRelevanceContribution +
+        breakdown.weightedAccessibilityContribution +
+        breakdown.roundingAdjustment;
+      if (reconciled !== breakdown.overallScore) {
+        exhaustiveIdentityFailures++;
+      }
+      if (Math.abs(breakdown.roundingAdjustment) > 1) {
+        exhaustiveRangeFailures++;
+      }
+    }
+  }
+}
+
+assert(exhaustivePairs === 10201, 'Exhaustive verification checked exactly 10,201 integer pairs (0-100 x 0-100)');
+assert(exhaustiveIdentityFailures === 0, 'Reconciliation identity holds for all 10,201 integer pairs (0 violations)');
+assert(exhaustiveRangeFailures === 0, 'All 10,201 overall scores and rounding adjustments are strictly bounded');
+assert(zeroRelevanceFailures === 0, 'Zero relevance strictly yields 0 overall score across all 101 accessibility values');
+
+// Step 3.2 Hardening: Boundary and non-standard number tests (NaN, Infinity, negative, > 100)
+const bNaNRel = calculateScoreBreakdown(NaN, 80);
+assert(bNaNRel.rawRelevanceScore === 0, 'NaN relevance score is sanitized to 0');
+assert(bNaNRel.overallScore === 0, 'NaN relevance yields overallScore = 0');
+assert(bNaNRel.weightedRelevanceContribution === 0, 'NaN relevance has 0 weighted relevance');
+
+const bNaNAcc = calculateScoreBreakdown(70, NaN);
+assert(bNaNAcc.rawAccessibilityScore === 0, 'NaN accessibility score is sanitized to 0');
+assert(
+  bNaNAcc.weightedRelevanceContribution + bNaNAcc.weightedAccessibilityContribution + bNaNAcc.roundingAdjustment === bNaNAcc.overallScore,
+  'NaN accessibility breakdown reconciles mathematically'
+);
+
+const bNegRel = calculateScoreBreakdown(-50, 80);
+assert(bNegRel.rawRelevanceScore === 0, 'Negative relevance score clamped to 0');
+assert(bNegRel.overallScore === 0, 'Negative relevance yields overallScore = 0');
+
+const bNegInfRel = calculateScoreBreakdown(-Infinity, 50);
+assert(bNegInfRel.rawRelevanceScore === 0, '-Infinity relevance clamped to 0');
+assert(bNegInfRel.overallScore === 0, '-Infinity relevance yields overallScore = 0');
+
+const bNegAcc = calculateScoreBreakdown(80, -20);
+assert(bNegAcc.rawAccessibilityScore === 0, 'Negative accessibility clamped to 0');
+assert(
+  bNegAcc.weightedRelevanceContribution + bNegAcc.weightedAccessibilityContribution + bNegAcc.roundingAdjustment === bNegAcc.overallScore,
+  'Negative accessibility breakdown reconciles mathematically'
+);
+
+const bAbove100 = calculateScoreBreakdown(150, 200);
+assert(bAbove100.rawRelevanceScore === 100, 'Relevance score > 100 clamped to 100');
+assert(bAbove100.rawAccessibilityScore === 100, 'Accessibility score > 100 clamped to 100');
+assert(bAbove100.overallScore === 100, 'Clamped scores yield overallScore = 100');
+assert(
+  bAbove100.weightedRelevanceContribution + bAbove100.weightedAccessibilityContribution + bAbove100.roundingAdjustment === 100,
+  'Scores > 100 breakdown reconciles'
+);
+
+const bPosInf = calculateScoreBreakdown(Infinity, Infinity);
+assert(bPosInf.rawRelevanceScore === 100, '+Infinity relevance clamped to 100');
+assert(bPosInf.rawAccessibilityScore === 100, '+Infinity accessibility clamped to 100');
+assert(bPosInf.overallScore === 100, '+Infinity yields overallScore = 100');
+
 // -------------------------------------------------------------
 // 5. Recommendation APIs
 // -------------------------------------------------------------
@@ -380,6 +549,9 @@ assert(
     relianceRecs[0].scoreBreakdown.overallScore,
   'Recommendation scoreBreakdown reconciles mathematically with overallScore'
 );
+assert(relianceRecs[0].relevanceScore === relianceRecs[0].scoreBreakdown.rawRelevanceScore, 'Recommendation relevanceScore matches scoreBreakdown.rawRelevanceScore');
+assert(relianceRecs[0].accessibilityScore === relianceRecs[0].scoreBreakdown.rawAccessibilityScore, 'Recommendation accessibilityScore matches scoreBreakdown.rawAccessibilityScore');
+assert(relianceRecs[0].overallScore === relianceRecs[0].scoreBreakdown.overallScore, 'Recommendation overallScore matches scoreBreakdown.overallScore');
 assert(
   !relianceRecs[0].reasons.some(r => r.category === 'RELATIONSHIP_PATH'),
   'reasons array contains strictly professional domain relevance reasons (no RELATIONSHIP_PATH)'

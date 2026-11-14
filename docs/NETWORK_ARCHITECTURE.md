@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 3.1 Complete — Graph Safety & Recommendation Scoring Refinement Implemented  
+**Status:** Phase 1, Step 3.2 Complete — Deep Freeze, Sector Ambiguity & Scoring Boundary Hardening Implemented  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `50dfc180891a4c86e6bebb78b3538b961dcffd65`
+**Current Commit:** `[Pending Step 3.2 commit]` (Base commit: `1a8313b790b3b9a7a5193cbfd7889f7c4e7f3758`)
 
 ---
 
@@ -642,16 +642,16 @@ src/
 
 ## 12. Implementation Sequence & Status
 
-To ensure disciplined execution without regressions, the implementation follows a strict six-step roadmap:
+To ensure disciplined execution without regressions, the implementation follows a strict seven-stage roadmap:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Phase 1, Step 1: Architectural Design & Domain Model Specification (COMPLETE)│
+│ 1. Architecture: Architectural Design & Domain Model Specification (COMPLETE)│
 │ Deliverable: docs/NETWORK_ARCHITECTURE.md (Design Specification)           │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 2: Domain Types & Synthetic Dataset Authoring (COMPLETE)      │
+│ 2. Dataset: Domain Types, Synthetic Dataset & Hardened Validator (COMPLETE) │
 │ • Implemented src/types/network.ts with discriminated unions & directionality│
 │ • Created 16-persona synthetic dataset in src/data/networkData.ts           │
 │ • Step 2.1 Hardened validation: date regex, chronology & consistency checks │
@@ -659,26 +659,33 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 3: Graph Traversal & Scoring Service Implementation (COMPLETE) │
+│ 3. Graph Service & Scoring: Traversal & Intelligence Service (COMPLETE)     │
 │ • Implemented src/services/networkService.ts                                │
-│ • BFS pathfinding & explainable relevance ranking algorithms                │
-│ • Automated unit test suite in scripts/test_network_service.mjs (167 passing)│
+│ • BFS pathfinding (2-hop cap) & explainable relevance ranking algorithms    │
+│ • Step 3.1 & 3.2 Hardening: Deep freeze, sector precision & boundary bounds │
+│ • Automated unit test suite in scripts/test_network_service.mjs (262 passing│
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 4: Standalone Network UI & Navigation (NEXT)                  │
+│ 4. Network Interface: Standalone Network UI & Navigation (NEXT)             │
 │ • Build standalone NetworkView component with search & degree filters       │
 │ • Integrate navigation in App.tsx and Header.tsx                            │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 5: Contextual Intelligence Integration (Push & Pull)          │
-│ • Embed company contact recommendations in ResearchCopilot.tsx              │
-│ • Enrich corporate announcements in AnnouncementFeed.tsx                    │
+│ 5. Direct Network Queries: Dedicated Target & Filter Query Workflows        │
+│ • Direct company, sector, and expertise contact retrieval endpoints         │
+│ • Interactive introduction path expansion & intermediary display            │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 6: End-to-End Verification, Visual Audit & Submission Hardening│
+│ 6. Contextual Integration: Push/Pull Intelligence Linking (PLANNED)         │
+│ • Embed company contact recommendations in ResearchCopilot.tsx (Pull)       │
+│ • Enrich corporate announcements in AnnouncementFeed.tsx (Push)             │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│ 7. End-to-End Verification & Submission Hardening (PLANNED)                 │
 │ • Cross-browser verification, responsive layout audit & WCAG compliance     │
 │ • Full regression verification across all test suites                       │
 │ • Final documentation review and submission package                         │
@@ -721,26 +728,33 @@ To ensure disciplined execution without regressions, the implementation follows 
     $$\text{accessibilityScore} = \max\left(0, \min\left(100, \text{pathStrength} \times 20 - (\text{hopCount} - 1) \times 15\right)\right)$$
   - Deterministic sorting: hopCount asc, accessibilityScore desc, intermediary ID asc, edge IDs asc.
 
-### 12.3 Phase 1 Step 3.1 Refinements: Graph Safety, Precision Matching & Score Reconciliation
-- **Runtime Immutability Abstraction (`ReadOnlyMap<K, V>`)**:
-  - Encapsulates Map collections within an immutable wrapper backed by private storage.
-  - Public mutating methods (`set`, `delete`, `clear`) throw explicit runtime `Error` exceptions.
-  - Graph entities (`Person`, `NetworkEdge`, nested `employmentHistory`, and `expertise` arrays) are recursively deep-frozen using `deepFreeze`.
-  - Guarantees external callers cannot mutate graph nodes, adjacency lists, or metadata.
-- **Sector Matching Precision (`isSectorMatch`)**:
-  - Replaces loose substring checks with an explicit `CANONICAL_SECTOR_MAP` mapping verified sectors/subsectors to canonical clusters (`INFORMATION_TECHNOLOGY`, `FINANCIAL_SERVICES`, `ENERGY`, `CONSUMER_SERVICES`, `CONSUMER_DISCRETIONARY`, `CONSUMER_STAPLES`, `HEALTHCARE`, `TELECOMMUNICATIONS`, `CONSTRUCTION`, etc.).
-  - Generic or ambiguous words (e.g. "Services", "Technology", "Consulting") without a registered canonical cluster strictly return `false`.
-  - Negative tests verify that unrelated sectors sharing generic tokens (such as "Consumer Staples" vs "Consumer Discretionary") never produce false-positive peer-role affiliations.
-- **Mathematical Score Breakdown & Reconciliation (`ScoreBreakdown`)**:
-  - Added strongly-typed `ScoreBreakdown` to `ContactRecommendation` recording `rawRelevanceScore`, `rawAccessibilityScore`, `weightedRelevanceContribution`, `weightedAccessibilityContribution`, `roundingAdjustment`, and `overallScore`.
-  - Guarantees exact mathematical identity:
-    $$\text{weightedRelevance} + \text{weightedAccessibility} + \text{roundingAdjustment} \equiv \text{overallScore}$$
-  - Professional domain relevance reasons (`CURRENT_ROLE`, `PAST_ROLE`, `PEER_ROLE`, `EXPERTISE_EXACT`, `EXPERTISE_PARTIAL`) are cleanly separated from relationship accessibility and path attributes.
+### 12.3 Phase 1 Steps 3.1 & 3.2 Refinements: Deep Freeze, Sector Ambiguity & Scoring Boundary Hardening
+- **Deep Runtime Immutability (`deepFreeze` & `ReadOnlyMap<K, V>`)**:
+  - Encapsulates Map collections within `ReadOnlyMap`, which implements `ReadonlyMap<K, V>` and explicitly throws runtime `Error` exceptions on `set()`, `delete()`, and `clear()`.
+  - `deepFreeze` traverses all own property keys including symbols (`Reflect.ownKeys`).
+  - Does not halt recursion merely because the parent is already shallow-frozen; deep children and nested arrays are systematically frozen.
+  - Cycles are tracked via `WeakSet` to prevent infinite recursion on cyclic object graphs.
+  - Explicit collection policy: `ReadOnlyMap` instances are supported by deeply freezing their values; standard mutable `Map` and `Set` instances are rejected with a `TypeError` to prevent unfreezable collection state from remaining reachable.
+- **Sector Matching Precision & Ambiguity (`isSectorMatch`)**:
+  - Evaluates canonical cluster identity via `CANONICAL_SECTOR_MAP`.
+  - Multi-sector and ambiguous labels (`energy, retail & telecommunications`, `conglomerate / energy`, `consumer goods & internet services`) are strictly removed and rejected.
+  - Generic or ambiguous tokens (`Services`, `Technology`, `Consulting`) return `false`.
+  - Unambiguous energy aliases (`Energy`, `Energy & Petrochemicals`, `Oil & Gas Refining & Marketing`, `Energy & Industrials Advisory`) match reliably, while ambiguous conglomerates return `false`.
+- **Score Breakdown, Validation & Boundary Hardening (`calculateScoreBreakdown`)**:
+  - Implements `sanitizeScore` to cleanly handle `NaN`, non-numbers, negative values, and values exceeding 100:
+    - `NaN` and non-numbers are sanitized to `0`.
+    - Negative numbers and `-Infinity` are clamped to `0`.
+    - Values $> 100$ and `+Infinity` are clamped to `100`.
+  - If sanitized relevance score is `0`: `overallScore` is strictly `0`, with `weightedRelevanceContribution = 0`, `weightedAccessibilityContribution = 0`, and `roundingAdjustment = 0`.
+  - Mathematical reconciliation identity:
+    $$\text{weightedRelevanceContribution} + \text{weightedAccessibilityContribution} + \text{roundingAdjustment} \equiv \text{overallScore}$$
+    holds unconditionally. Exhaustively verified across all 10,201 integer pairs $(r, a) \in [0, 100]^2$ with 0 violations.
+  - Recommendation outputs (`ContactRecommendation`) maintain exact consistency with the underlying calculation.
 - **Separated Free-Text Discovery Search (`searchNetwork`)**:
   - Returns `NetworkSearchResult` with explicit `searchMatchScore`, `accessibilityScore`, and bounded composite `searchRankingScore` ($0.7 \times \text{match} + 0.3 \times \text{accessibility}$).
   - Fields searched: `NAME`, `CURRENT_ORGANISATION`, `CURRENT_ROLE`, `PAST_ORGANISATION`, `PAST_ROLE`, `EXPERTISE`, `HEADLINE_OR_SUMMARY`.
   - Deduplicates field match contributions and gracefully handles empty/whitespace queries.
-- **Automated Test Suite**: `scripts/test_network_service.mjs` executes 206 comprehensive tests, passing with 0 failures across immutability, sector precision, score reconciliation, and discovery search.
+- **Automated Test Suite**: `scripts/test_network_service.mjs` executes 262 comprehensive tests, passing with 0 failures.
 
 
 ---

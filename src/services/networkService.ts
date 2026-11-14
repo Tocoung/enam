@@ -117,23 +117,56 @@ export class ReadOnlyMap<K, V> implements ReadonlyMap<K, V> {
 
 /**
  * Recursively freezes an object, its properties, and nested arrays/objects.
- * Guarantees deep runtime immutability.
+ *
+ * Immutability guarantees:
+ * - Traverses all own properties, including symbol-keyed properties (via Reflect.ownKeys).
+ * - Does not stop recursion merely because the parent object is already shallow-frozen.
+ * - Protects against cyclic object graphs using a WeakSet to prevent infinite recursion.
+ * - Explicit collection policy:
+ *   - ReadOnlyMap instances are explicitly supported: their values are deeply frozen and instance frozen.
+ *   - Standard mutable Map and Set instances are explicitly REJECTED with a TypeError because their internal
+ *     collection slots cannot be protected against mutation via Object.freeze.
  */
-export function deepFreeze<T>(obj: T): Readonly<T> {
+export function deepFreeze<T>(obj: T, seen: WeakSet<object> = new WeakSet()): Readonly<T> {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-  if (Object.isFrozen(obj)) {
-    return obj;
+
+  // Prevent cycles from causing infinite recursion
+  if (seen.has(obj as object)) {
+    return obj as Readonly<T>;
   }
-  Object.freeze(obj);
-  for (const key of Object.getOwnPropertyNames(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (val !== null && typeof val === 'object' && !Object.isFrozen(val)) {
-      deepFreeze(val);
+  seen.add(obj as object);
+
+  // Policy: Explicitly support ReadOnlyMap instances
+  if (obj instanceof ReadOnlyMap) {
+    for (const val of obj.values()) {
+      if (val !== null && typeof val === 'object') {
+        deepFreeze(val, seen);
+      }
+    }
+    Object.freeze(obj);
+    return obj as Readonly<T>;
+  }
+
+  // Policy: Explicitly reject standard mutable Map and Set instances
+  if (obj instanceof Map || obj instanceof Set) {
+    throw new TypeError(
+      'deepFreeze rejects mutable Map and Set instances: standard JavaScript Map/Set collections cannot be made runtime-immutable via Object.freeze. Use ReadOnlyMap or plain arrays/objects instead.'
+    );
+  }
+
+  // Traverse all own property keys, including symbol keys, even if parent is already frozen
+  const keys = Reflect.ownKeys(obj as object);
+  for (const key of keys) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (desc && desc.value !== null && typeof desc.value === 'object') {
+      deepFreeze(desc.value, seen);
     }
   }
-  return obj;
+
+  Object.freeze(obj);
+  return obj as Readonly<T>;
 }
 
 /**
@@ -347,18 +380,15 @@ export const CANONICAL_SECTOR_MAP: Readonly<Record<string, string>> = Object.fre
   'public sector bank': 'FINANCIAL_SERVICES',
   'non-banking financial company (nbfc)': 'FINANCIAL_SERVICES',
 
-  // Energy & Petrochemicals
+  // Energy & Petrochemicals (unambiguous canonical labels)
   'energy': 'ENERGY',
   'energy & petrochemicals': 'ENERGY',
   'oil & gas refining & marketing': 'ENERGY',
   'energy & industrials advisory': 'ENERGY',
-  'energy, retail & telecommunications': 'ENERGY',
-  'conglomerate / energy': 'ENERGY',
 
   // Consumer Services (Quick Commerce / Food Delivery / Consumer Internet)
   'consumer services': 'CONSUMER_SERVICES',
   'consumer internet & services': 'CONSUMER_SERVICES',
-  'consumer goods & internet services': 'CONSUMER_SERVICES',
   'quick commerce / food delivery': 'CONSUMER_SERVICES',
   'internet & direct marketing retail': 'CONSUMER_SERVICES',
   'consumer internet ipo': 'CONSUMER_SERVICES',
@@ -760,22 +790,49 @@ export function calculateExpertiseRelevance(
 }
 
 /**
+ * Sanitizes and bounds a numerical score input to the [0, 100] interval.
+ *
+ * Boundary & edge-case behavior:
+ * - NaN, null, undefined, or non-number types: Sanitized to 0.
+ * - Negative numbers (< 0) and -Infinity: Clamped to 0.
+ * - Values > 100 and +Infinity: Clamped to 100.
+ * - Finite numbers in [0, 100]: Preserved as-is.
+ */
+export function sanitizeScore(val: number): number {
+  if (typeof val !== 'number' || Number.isNaN(val)) {
+    return 0;
+  }
+  if (val === -Infinity || val < 0) {
+    return 0;
+  }
+  if (val === Infinity || val > 100) {
+    return 100;
+  }
+  return val;
+}
+
+/**
  * Calculates mathematically reconciled ScoreBreakdown object.
  *
- * Guarantees:
- * - overallScore = Math.round(0.65 * relevanceScore + 0.35 * accessibilityScore)
- * - If relevanceScore is 0, overallScore is strictly 0.
- * - weightedRelevanceContribution = Math.round(0.65 * relevanceScore)
- * - weightedAccessibilityContribution = Math.round(0.35 * accessibilityScore)
- * - roundingAdjustment accounts for integer rounding delta:
+ * Scoring invariants:
+ * - Relevance weight: 65% (0.65), Accessibility weight: 35% (0.35).
+ * - Boundary handling:
+ *   - NaN or non-number inputs are sanitized to 0.
+ *   - Negative numbers or -Infinity are clamped to 0.
+ *   - Scores above 100 or +Infinity are clamped to 100.
+ * - If rawRelevanceScore is 0 (or sanitized to 0):
+ *   overallScore is strictly 0 (no professional relevance).
+ *   weightedRelevanceContribution = 0, weightedAccessibilityContribution = 0, roundingAdjustment = 0.
+ * - Mathematical reconciliation identity:
  *   weightedRelevanceContribution + weightedAccessibilityContribution + roundingAdjustment === overallScore
+ *   holds unconditionally across all inputs.
  */
 export function calculateScoreBreakdown(
   relevanceScore: number,
   accessibilityScore: number
 ): ScoreBreakdown {
-  const rawRelevanceScore = Math.max(0, Math.min(100, relevanceScore));
-  const rawAccessibilityScore = Math.max(0, Math.min(100, accessibilityScore));
+  const rawRelevanceScore = sanitizeScore(relevanceScore);
+  const rawAccessibilityScore = sanitizeScore(accessibilityScore);
 
   if (rawRelevanceScore <= 0) {
     return {
@@ -827,9 +884,6 @@ export function calculateOverallScore(
   relevanceScore: number,
   accessibilityScore: number
 ): number {
-  if (relevanceScore <= 0) {
-    return 0;
-  }
   return calculateScoreBreakdown(relevanceScore, accessibilityScore).overallScore;
 }
 
@@ -869,7 +923,8 @@ function buildRecommendation(
   relevanceScore: number,
   reasons: RecommendationReason[]
 ): ContactRecommendation | null {
-  if (relevanceScore <= 0 || paths.length === 0) {
+  const sanitizedRel = sanitizeScore(relevanceScore);
+  if (sanitizedRel <= 0 || paths.length === 0) {
     return null;
   }
 
@@ -882,8 +937,8 @@ function buildRecommendation(
     path: bestPath,
     allPaths: paths,
     degree: bestPath.degree,
-    accessibilityScore,
-    relevanceScore,
+    accessibilityScore: scoreBreakdown.rawAccessibilityScore,
+    relevanceScore: scoreBreakdown.rawRelevanceScore,
     overallScore: scoreBreakdown.overallScore,
     scoreBreakdown,
     reasons,
