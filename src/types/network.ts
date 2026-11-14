@@ -259,6 +259,21 @@ export interface RecommendationReason {
   readonly supportingEvidence: string;
 }
 
+/**
+ * Detailed breakdown of relevance vs accessibility scoring components.
+ * Explicitly reconciles raw points, weighted contributions, rounding adjustments,
+ * and the final overall score.
+ */
+export interface ScoreBreakdown {
+  readonly rawRelevanceScore: number;
+  readonly rawAccessibilityScore: number;
+  readonly weightedRelevanceContribution: number;
+  readonly weightedAccessibilityContribution: number;
+  readonly roundingAdjustment: number;
+  readonly overallScore: number;
+  readonly reconciliationSummary: string;
+}
+
 export interface ContactRecommendation {
   readonly person: Person;
   readonly path: IntroductionPath;
@@ -267,7 +282,40 @@ export interface ContactRecommendation {
   readonly accessibilityScore: number; // 0-100 bounded
   readonly relevanceScore: number;     // 0-100 bounded
   readonly overallScore: number;       // 0-100 bounded
+  readonly scoreBreakdown: ScoreBreakdown;
   readonly reasons: readonly RecommendationReason[];
+  readonly provenanceDisclaimer: string;
+}
+
+export type SearchMatchField =
+  | 'NAME'
+  | 'CURRENT_ROLE'
+  | 'CURRENT_ORGANISATION'
+  | 'PAST_ROLE'
+  | 'PAST_ORGANISATION'
+  | 'EXPERTISE'
+  | 'HEADLINE_OR_SUMMARY';
+
+export interface SearchMatchReason {
+  readonly field: SearchMatchField;
+  readonly description: string;
+  readonly matchedText: string;
+  readonly scoreContribution: number;
+}
+
+/**
+ * Free-text discovery search result.
+ * Separated from professional investment relevance recommendation scoring.
+ */
+export interface NetworkSearchResult {
+  readonly person: Person;
+  readonly path: IntroductionPath;
+  readonly allPaths: readonly IntroductionPath[];
+  readonly degree: 1 | 2;
+  readonly searchMatchScore: number;   // 0-100 free-text match quality
+  readonly accessibilityScore: number; // 0-100 relationship accessibility
+  readonly searchRankingScore: number; // combined discovery score
+  readonly matchReasons: readonly SearchMatchReason[];
   readonly provenanceDisclaimer: string;
 }
 

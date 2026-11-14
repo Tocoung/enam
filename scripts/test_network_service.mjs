@@ -2,8 +2,9 @@
 /**
  * Automated Unit Tests for FINN Network Intelligence Service.
  *
- * Verifies pure TypeScript graph construction, directed/undirected traversal,
- * 2-hop depth capping, explainable relevance scoring, and contact ranking.
+ * Verifies pure TypeScript graph construction, runtime immutability, directed/undirected traversal,
+ * 2-hop depth capping, precise sector matching, mathematically reconciled score breakdowns,
+ * free-text discovery search semantics, and adversarial mutation guards.
  *
  * Run: node scripts/test_network_service.mjs
  */
@@ -31,8 +32,8 @@ const {
   calculateCompanyRelevance,
   calculateSectorRelevance,
   calculateExpertiseRelevance,
-  calculateGeneralRelevance,
   calculateOverallScore,
+  calculateScoreBreakdown,
   getContactsForCompany,
   getContactsForSector,
   getContactsForExpertise,
@@ -40,6 +41,9 @@ const {
   queryNetwork,
   resolveTickerSector,
   isSectorMatch,
+  ReadOnlyMap,
+  deepFreeze,
+  CANONICAL_SECTOR_MAP,
   SCORING_WEIGHTS,
   PROFICIENCY_MULTIPLIERS,
 } = networkService;
@@ -57,12 +61,28 @@ function assert(condition, testName, details = '') {
   }
 }
 
+function assertThrows(fn, testName, expectedErrorSubstr = '') {
+  try {
+    fn();
+    failed++;
+    console.error(`  [FAIL] ${testName}: Expected error to be thrown but function succeeded`);
+  } catch (err) {
+    if (expectedErrorSubstr && !err.message.includes(expectedErrorSubstr)) {
+      failed++;
+      console.error(`  [FAIL] ${testName}: Error message '${err.message}' does not contain '${expectedErrorSubstr}'`);
+    } else {
+      passed++;
+      console.log(`  [PASS] ${testName}`);
+    }
+  }
+}
+
 console.log('=== FINN Network Intelligence Service & Traversal Tests ===\n');
 
 // -------------------------------------------------------------
-// 1. Graph Construction Tests
+// 1. Graph Construction & Runtime Immutability
 // -------------------------------------------------------------
-console.log('1. Graph Construction:');
+console.log('1. Graph Construction & Runtime Immutability:');
 
 const graph = buildNetworkGraph(NETWORK_DATASET);
 
@@ -72,14 +92,86 @@ assert(graph.totalNodes === 17, 'Total nodes equals 17 (16 personas + INVESTOR_R
 assert(graph.totalEdges === 26, 'Total edges equals 26', graph.totalEdges);
 assert(graph.people.size === 16, 'All 16 people indexed in people map', graph.people.size);
 
-// Check all 16 personas exist by ID
-for (const person of NETWORK_PERSONAS) {
-  assert(graph.people.has(person.id), `Person '${person.id}' indexed in graph.people`);
-}
+// ReadOnlyMap verification
+assert(graph.people instanceof ReadOnlyMap, 'graph.people is an instance of ReadOnlyMap');
+assert(graph.adjacency instanceof ReadOnlyMap, 'graph.adjacency is an instance of ReadOnlyMap');
+
+// Attempted mutation of graph.people methods
+assertThrows(() => {
+  graph.people.set('person-hacked', {});
+}, 'graph.people.set() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+assertThrows(() => {
+  graph.people.delete('person-arun-sharma');
+}, 'graph.people.delete() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+assertThrows(() => {
+  graph.people.clear();
+}, 'graph.people.clear() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+// Attempted mutation of graph.adjacency methods
+assertThrows(() => {
+  graph.adjacency.set('INVESTOR_ROOT', []);
+}, 'graph.adjacency.set() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+assertThrows(() => {
+  graph.adjacency.delete('INVESTOR_ROOT');
+}, 'graph.adjacency.delete() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+assertThrows(() => {
+  graph.adjacency.clear();
+}, 'graph.adjacency.clear() throws runtime Error', 'Cannot mutate ReadOnlyMap');
+
+// Attempted mutation of nested Person records
+const arunPerson = graph.people.get('person-arun-sharma');
+assertThrows(() => {
+  arunPerson.name = 'Hacked Name';
+}, 'Modifying person.name throws TypeError (frozen object)');
+
+assertThrows(() => {
+  arunPerson.employmentHistory.push({});
+}, 'Modifying person.employmentHistory array throws TypeError (frozen array)');
+
+assertThrows(() => {
+  arunPerson.employmentHistory[0].roleTitle = 'Hacked Role';
+}, 'Modifying person.employmentHistory[0] throws TypeError');
+
+assertThrows(() => {
+  arunPerson.expertise.push({});
+}, 'Modifying person.expertise array throws TypeError');
+
+assertThrows(() => {
+  arunPerson.expertise[0].name = 'Hacked Expertise';
+}, 'Modifying person.expertise[0] throws TypeError');
+
+// Attempted mutation of adjacency list arrays
+const rootEdges = graph.adjacency.get('INVESTOR_ROOT');
+assertThrows(() => {
+  rootEdges.push({});
+}, 'Modifying graph.adjacency list array throws TypeError');
+
+// Attempted mutation of graph root
+assertThrows(() => {
+  graph.rootInvestorId = 'HACKED';
+}, 'Modifying graph.rootInvestorId throws TypeError');
+
+// Input dataset immutability
+const originalPeopleCount = NETWORK_DATASET.people.length;
+const originalEdgeCount = NETWORK_DATASET.edges.length;
+assert(originalPeopleCount === 16, 'Input dataset people count remains 16');
+assert(originalEdgeCount === 26, 'Input dataset edge count remains 26');
+
+// Rejection of invalid dataset
+assertThrows(() => {
+  const invalidDataset = {
+    ...NETWORK_DATASET,
+    people: NETWORK_DATASET.people.slice(0, 10),
+  };
+  buildNetworkGraph(invalidDataset);
+}, 'Invalid dataset is rejected during graph construction', 'Cannot construct NetworkGraph from invalid dataset');
 
 // Directionality verification in adjacency
-const rootAdjacency = graph.adjacency.get('INVESTOR_ROOT') || [];
-assert(rootAdjacency.length === 16, 'INVESTOR_ROOT has exactly 16 outgoing edges', rootAdjacency.length);
+assert(rootEdges.length === 16, 'INVESTOR_ROOT has exactly 16 outgoing edges', rootEdges.length);
 
 // Investor edges must NOT be traversable backwards
 let backwardInvestorEdgesFound = 0;
@@ -94,7 +186,6 @@ for (const person of NETWORK_PERSONAS) {
 assert(backwardInvestorEdgesFound === 0, 'Directed investor edges not traversable backwards from people to investor', backwardInvestorEdgesFound);
 
 // P2P edges must be traversable symmetrically
-// Take edge-p2p-sen-radhika: person-vikram-sen <-> person-radhika-iyer
 const senEdges = graph.adjacency.get('person-vikram-sen') || [];
 const radhikaEdges = graph.adjacency.get('person-radhika-iyer') || [];
 const senHasEdge = senEdges.some(e => e.id === 'edge-p2p-sen-radhika');
@@ -102,30 +193,45 @@ const radhikaHasEdge = radhikaEdges.some(e => e.id === 'edge-p2p-sen-radhika');
 assert(senHasEdge === true, 'P2P edge present in source persona adjacency (Sen)');
 assert(radhikaHasEdge === true, 'P2P edge present in target persona adjacency (Radhika)');
 
-// Input dataset immutability
-const originalPeopleCount = NETWORK_DATASET.people.length;
-const originalEdgeCount = NETWORK_DATASET.edges.length;
-assert(originalPeopleCount === 16, 'Input dataset people count remains 16');
-assert(originalEdgeCount === 26, 'Input dataset edge count remains 26');
+// -------------------------------------------------------------
+// 2. Sector Matching Precision & Negative Overlap
+// -------------------------------------------------------------
+console.log('\n2. Sector Matching Precision:');
 
-// Rejection of invalid dataset
-let invalidDatasetThrown = false;
-try {
-  const invalidDataset = {
-    ...NETWORK_DATASET,
-    people: NETWORK_DATASET.people.slice(0, 10), // Only 10 people -> invalid
-  };
-  buildNetworkGraph(invalidDataset);
-} catch (err) {
-  invalidDatasetThrown = true;
-  assert(err instanceof Error && err.message.includes('Cannot construct NetworkGraph from invalid dataset'), 'Rejection error message is descriptive');
-}
-assert(invalidDatasetThrown === true, 'Invalid dataset is rejected during graph construction');
+// Equivalent sector synonyms must match
+assert(isSectorMatch('IT Services', 'Information Technology') === true, 'IT Services matches Information Technology');
+assert(isSectorMatch('IT Services & Consulting', 'Information Technology') === true, 'IT Services & Consulting matches Information Technology');
+assert(isSectorMatch('Banking & Financials', 'Financial Services') === true, 'Banking & Financials matches Financial Services');
+assert(isSectorMatch('Non-Banking Financial Company (NBFC)', 'Financial Services') === true, 'NBFC matches Financial Services');
+assert(isSectorMatch('Oil & Gas Refining & Marketing', 'Energy') === true, 'Oil & Gas Refining matches Energy');
+assert(isSectorMatch('Quick Commerce / Food Delivery', 'Consumer Services') === true, 'Quick Commerce matches Consumer Services');
+assert(isSectorMatch('Automobile Manufacturers', 'Consumer Discretionary') === true, 'Automobile Manufacturers matches Consumer Discretionary');
+assert(isSectorMatch('Pharmaceuticals', 'Healthcare') === true, 'Pharmaceuticals matches Healthcare');
+assert(isSectorMatch('Telecom Services', 'Telecommunications') === true, 'Telecom Services matches Telecommunications');
+assert(isSectorMatch('Civil Construction & Engineering', 'Construction') === true, 'Civil Construction matches Construction');
+
+// Negative tests: Distinct sectors sharing generic words MUST NOT match
+assert(isSectorMatch('Consumer Staples', 'Consumer Discretionary') === false, 'Consumer Staples does NOT match Consumer Discretionary');
+assert(isSectorMatch('Consumer Discretionary', 'Consumer Services') === false, 'Consumer Discretionary does NOT match Consumer Services');
+assert(isSectorMatch('Consumer Staples', 'Consumer Services') === false, 'Consumer Staples does NOT match Consumer Services');
+assert(isSectorMatch('Management Consulting', 'IT Consulting & Software') === false, 'Management Consulting does NOT match IT Consulting');
+assert(isSectorMatch('Financial Technology (Fintech)', 'Information Technology') === false, 'Fintech does NOT match Information Technology');
+assert(isSectorMatch('Private Credit & Special Situations', 'Information Technology') === false, 'Private Credit does NOT match Information Technology');
+assert(isSectorMatch('Civil Construction & Engineering', 'Energy') === false, 'Civil Construction does NOT match Energy');
+assert(isSectorMatch('Apparel Retail', 'Personal Care & Household Products') === false, 'Apparel Retail does NOT match Personal Care');
+
+// Unknown or ambiguous classifications must NOT match
+assert(isSectorMatch('Aerospace & Defense', 'Information Technology') === false, 'Unknown sector does not match IT');
+assert(isSectorMatch('Cryptocurrency Mining', 'Financial Services') === false, 'Unknown sector does not match Financial Services');
+assert(isSectorMatch('Services', 'Services') === false, 'Generic word "Services" without registered cluster does not match');
+assert(isSectorMatch('Technology', 'Technology') === false, 'Generic word "Technology" without registered cluster does not match');
+assert(isSectorMatch('', 'Information Technology') === false, 'Empty string does not match');
+assert(isSectorMatch('Information Technology', '') === false, 'Empty target does not match');
 
 // -------------------------------------------------------------
-// 2. Pathfinding Tests
+// 3. Pathfinding & Accessibility
 // -------------------------------------------------------------
-console.log('\n2. Pathfinding & Accessibility:');
+console.log('\n3. Pathfinding & Accessibility:');
 
 // Direct 1-hop path for Arun Sharma
 const arunPaths = findIntroductionPaths('person-arun-sharma', graph);
@@ -137,8 +243,6 @@ assert(arunPaths[0].accessibilityScore === 80, 'Direct accessibility score is 4 
 assert(arunPaths[0].intermediary === undefined, 'Direct path has no intermediary');
 
 // Second-degree paths for Radhika Iyer
-// Direct: INVESTOR_ROOT -> Radhika (strength 3, access 60)
-// 2-hop: INVESTOR_ROOT -> Vikram Sen (strength 5) -> Radhika (strength 4) -> pathStrength 4, access: 4*20 - 15 = 65
 const radhikaPaths = findIntroductionPaths('person-radhika-iyer', graph);
 assert(radhikaPaths.length >= 2, 'Radhika Iyer has multiple paths (direct + 2-hop)', radhikaPaths.length);
 assert(radhikaPaths[0].degree === 1, 'First path in sorted order is direct 1-hop path');
@@ -150,7 +254,7 @@ assert(secondDegreePath.pathStrength === 4, 'Path strength is min(5, 4) = 4');
 assert(secondDegreePath.accessibilityScore === 65, 'Accessibility score is 4 * 20 - 15 = 65', secondDegreePath.accessibilityScore);
 assert(secondDegreePath.nodeIds.length === 3, 'Path nodeIds contains exactly 3 nodes');
 
-// Traversal depth capped at 2
+// Traversal depth capped at 2 across all personas
 for (const person of NETWORK_PERSONAS) {
   const paths = findIntroductionPaths(person.id, graph);
   for (const p of paths) {
@@ -158,7 +262,7 @@ for (const person of NETWORK_PERSONAS) {
   }
 }
 
-// No repeated nodes
+// No repeated nodes across all personas
 for (const person of NETWORK_PERSONAS) {
   const paths = findIntroductionPaths(person.id, graph);
   for (const p of paths) {
@@ -167,7 +271,7 @@ for (const person of NETWORK_PERSONAS) {
   }
 }
 
-// Deterministic ordering across multiple calls
+// Deterministic ordering across repeated calls
 const pathsCall1 = findIntroductionPaths('person-radhika-iyer', graph);
 const pathsCall2 = findIntroductionPaths('person-radhika-iyer', graph);
 assert(JSON.stringify(pathsCall1) === JSON.stringify(pathsCall2), 'Pathfinding produces identical deterministic results across repeated calls');
@@ -177,13 +281,11 @@ const nonExistentPaths = findIntroductionPaths('person-does-not-exist', graph);
 assert(Array.isArray(nonExistentPaths) && nonExistentPaths.length === 0, 'Non-existent target returns empty paths array');
 
 // -------------------------------------------------------------
-// 3. Relevance Scoring Tests
+// 4. Relevance Scoring & Reconciliation
 // -------------------------------------------------------------
-console.log('\n3. Relevance Scoring:');
+console.log('\n4. Relevance Scoring & Reconciliation:');
 
-// Company scoring: Current vs Past vs Unrelated
 const vikramPerson = graph.people.get('person-vikram-sen');
-const arunPerson = graph.people.get('person-arun-sharma');
 const deepaPerson = graph.people.get('person-deepa-menon');
 
 // Current company role at TCS
@@ -199,10 +301,19 @@ assert(arunRelianceRel.reasons.some(r => r.category === 'PAST_ROLE'), 'Includes 
 // Current vs Past comparison
 assert(vikramTcsRel.relevanceScore > arunRelianceRel.relevanceScore, 'Current company employment scores higher than past company employment');
 
-// Unrelated company (Dr. Deepa Menon at Sun Pharma / Healthcare queried for RELIANCE / Energy)
+// Unrelated company: Deepa Menon (Healthcare) queried for RELIANCE (Energy)
 const deepaRelianceRel = calculateCompanyRelevance(deepaPerson, 'RELIANCE', graph);
 assert(deepaRelianceRel.relevanceScore === 0, 'Unrelated company query yields 0 relevance score', deepaRelianceRel.relevanceScore);
 assert(deepaRelianceRel.reasons.length === 0, 'Zero relevance yields 0 reasons');
+
+// Unknown ticker handling
+const unknownTickerRel = calculateCompanyRelevance(vikramPerson, 'UNKNOWN_TICKER_XYZ', graph);
+assert(unknownTickerRel.relevanceScore === 0, 'Unknown ticker yields 0 relevance score');
+assert(unknownTickerRel.reasons.length === 0, 'Unknown ticker yields 0 reasons');
+
+// Empty and whitespace ticker
+assert(calculateCompanyRelevance(vikramPerson, '', graph).relevanceScore === 0, 'Empty ticker yields 0 relevance');
+assert(calculateCompanyRelevance(vikramPerson, '   ', graph).relevanceScore === 0, 'Whitespace ticker yields 0 relevance');
 
 // Sector scoring: Current vs Past vs Unrelated
 const energyRel = calculateSectorRelevance(arunPerson, 'Energy');
@@ -210,6 +321,10 @@ assert(energyRel.relevanceScore > 0, 'Arun Sharma has positive relevance for Ene
 
 const pharmaRel = calculateSectorRelevance(deepaPerson, 'Healthcare');
 assert(pharmaRel.relevanceScore >= 50, 'Current role in Healthcare scores >= 50', pharmaRel.relevanceScore);
+
+// Empty sector query
+assert(calculateSectorRelevance(arunPerson, '').relevanceScore === 0, 'Empty sector query yields 0 relevance');
+assert(calculateSectorRelevance(arunPerson, '   ').relevanceScore === 0, 'Whitespace sector query yields 0 relevance');
 
 // Expertise scoring: Exact vs Partial & Proficiency
 const exactExpertise = calculateExpertiseRelevance(arunPerson, 'O2C Refining & Petrochemical Crack Spreads');
@@ -220,59 +335,155 @@ const partialExpertise = calculateExpertiseRelevance(arunPerson, 'Petrochemical'
 assert(partialExpertise.relevanceScore > 0, 'Partial keyword match scores positive', partialExpertise.relevanceScore);
 assert(exactExpertise.relevanceScore >= partialExpertise.relevanceScore, 'Exact match scores higher than or equal to partial match');
 
-// General search scoring
-const generalNameMatch = calculateGeneralRelevance(vikramPerson, 'Vikram', graph);
-assert(generalNameMatch.relevanceScore >= 50, 'General search matches person name', generalNameMatch.relevanceScore);
+// Empty expertise query
+assert(calculateExpertiseRelevance(arunPerson, '').relevanceScore === 0, 'Empty expertise query yields 0 relevance');
+assert(calculateExpertiseRelevance(arunPerson, '   ').relevanceScore === 0, 'Whitespace expertise query yields 0 relevance');
 
-// Score bounds: all scores between 0 and 100
-assert(vikramTcsRel.relevanceScore >= 0 && vikramTcsRel.relevanceScore <= 100, 'Company relevance is bounded [0, 100]');
-assert(energyRel.relevanceScore >= 0 && energyRel.relevanceScore <= 100, 'Sector relevance is bounded [0, 100]');
-assert(exactExpertise.relevanceScore >= 0 && exactExpertise.relevanceScore <= 100, 'Expertise relevance is bounded [0, 100]');
-assert(generalNameMatch.relevanceScore >= 0 && generalNameMatch.relevanceScore <= 100, 'General relevance is bounded [0, 100]');
+// Score Breakdown & Mathematical Reconciliation
+const b1 = calculateScoreBreakdown(70, 100);
+assert(b1.rawRelevanceScore === 70, 'b1 rawRelevanceScore is 70');
+assert(b1.rawAccessibilityScore === 100, 'b1 rawAccessibilityScore is 100');
+assert(b1.weightedRelevanceContribution === 46, 'b1 weightedRelevanceContribution is round(0.65 * 70) = 46', b1.weightedRelevanceContribution);
+assert(b1.weightedAccessibilityContribution === 35, 'b1 weightedAccessibilityContribution is round(0.35 * 100) = 35', b1.weightedAccessibilityContribution);
+assert(b1.overallScore === 81, 'b1 overallScore is 81');
+assert(
+  b1.weightedRelevanceContribution + b1.weightedAccessibilityContribution + b1.roundingAdjustment === b1.overallScore,
+  'b1 reconciliation: weightedRelevance + weightedAccessibility + roundingAdjustment === overallScore'
+);
 
-// Independence of relevance and accessibility:
-// A person with strength 5 to investor (100 accessibility) but 0 relevance must have 0 overallScore
-const overallWithZeroRel = calculateOverallScore(0, 100);
-assert(overallWithZeroRel === 0, 'Zero professional relevance strictly yields 0 overall score regardless of accessibility', overallWithZeroRel);
+const b2 = calculateScoreBreakdown(35, 65);
+assert(
+  b2.weightedRelevanceContribution + b2.weightedAccessibilityContribution + b2.roundingAdjustment === b2.overallScore,
+  'b2 reconciliation: weightedRelevance + weightedAccessibility + roundingAdjustment === overallScore'
+);
+
+const bZero = calculateScoreBreakdown(0, 100);
+assert(bZero.overallScore === 0, 'Zero relevance strictly yields overallScore = 0 regardless of accessibility', bZero.overallScore);
+assert(bZero.weightedRelevanceContribution === 0, 'Zero relevance has 0 weighted relevance');
+assert(bZero.weightedAccessibilityContribution === 0, 'Zero relevance has 0 weighted accessibility');
 
 // -------------------------------------------------------------
-// 4. Recommendation API Tests
+// 5. Recommendation APIs
 // -------------------------------------------------------------
-console.log('\n4. Recommendation APIs:');
+console.log('\n5. Recommendation APIs:');
 
 // getContactsForCompany
 const relianceRecs = getContactsForCompany('RELIANCE', graph);
 assert(relianceRecs.length > 0, 'getContactsForCompany(RELIANCE) returns recommendations', relianceRecs.length);
 assert(relianceRecs[0].person.id === 'person-arun-sharma', 'Top recommendation for RELIANCE is Arun Sharma');
 assert(relianceRecs[0].overallScore > 0, 'Overall score is positive', relianceRecs[0].overallScore);
-assert(relianceRecs[0].provenanceDisclaimer.includes('SYNTHETIC'), 'Includes prototype synthetic provenance disclaimer');
-assert(relianceRecs[0].reasons.length >= 2, 'Recommendation includes structured human-readable reasons', relianceRecs[0].reasons.length);
+assert(relianceRecs[0].scoreBreakdown !== undefined, 'Recommendation includes scoreBreakdown');
+assert(
+  relianceRecs[0].scoreBreakdown.weightedRelevanceContribution +
+    relianceRecs[0].scoreBreakdown.weightedAccessibilityContribution +
+    relianceRecs[0].scoreBreakdown.roundingAdjustment ===
+    relianceRecs[0].scoreBreakdown.overallScore,
+  'Recommendation scoreBreakdown reconciles mathematically with overallScore'
+);
+assert(
+  !relianceRecs[0].reasons.some(r => r.category === 'RELATIONSHIP_PATH'),
+  'reasons array contains strictly professional domain relevance reasons (no RELATIONSHIP_PATH)'
+);
 
-// Zero-relevance candidates excluded
+// Zero relevance candidate strictly excluded
 const reliancePersonIds = new Set(relianceRecs.map(r => r.person.id));
 assert(!reliancePersonIds.has('person-deepa-menon'), 'Deepa Menon (Healthcare) excluded from RELIANCE recommendations');
 
-// getContactsForCompany for TCS
+// Unknown ticker returns empty array
+const unknownTickerRecs = getContactsForCompany('UNKNOWN_XYZ', graph);
+assert(Array.isArray(unknownTickerRecs) && unknownTickerRecs.length === 0, 'Unknown ticker returns empty array');
+
+// Empty & whitespace ticker returns empty array
+assert(getContactsForCompany('', graph).length === 0, 'Empty ticker returns empty array');
+assert(getContactsForCompany('   ', graph).length === 0, 'Whitespace ticker returns empty array');
+
+// getContactsForCompany for TCS: exactly 2 verified contacts (Sen, Radhika)
 const tcsRecs = getContactsForCompany('TCS', graph);
-assert(tcsRecs.length > 0, 'getContactsForCompany(TCS) returns recommendations', tcsRecs.length);
-assert(tcsRecs[0].person.id === 'person-vikram-sen', 'Top recommendation for TCS is Vikram Sen (VP & Global Head of Delivery at TCS)');
+assert(tcsRecs.length === 2, 'getContactsForCompany(TCS) returns exactly 2 verified contacts', tcsRecs.length);
+assert(tcsRecs[0].person.id === 'person-vikram-sen', 'Top recommendation for TCS is Vikram Sen (TCS)');
+assert(tcsRecs[1].person.id === 'person-radhika-iyer', 'Second recommendation for TCS is Radhika Iyer (Infosys peer)');
 
 // getContactsForSector
 const consumerRecs = getContactsForSector('Consumer Services', graph);
-assert(consumerRecs.length >= 2, 'Consumer Services recommendations found', consumerRecs.length);
+assert(consumerRecs.length === 2, 'Consumer Services returns exactly 2 contacts (Swiggy / Zomato)', consumerRecs.length);
 const consumerIds = consumerRecs.map(r => r.person.id);
-assert(consumerIds.includes('person-priya-nair'), 'Priya Nair recommended for Consumer Services (Swiggy / Zomato)');
-assert(consumerIds.includes('person-sunil-verma'), 'Sunil Verma recommended for Consumer Services (Zomato / Swiggy)');
+assert(consumerIds.includes('person-priya-nair'), 'Priya Nair recommended for Consumer Services');
+assert(consumerIds.includes('person-sunil-verma'), 'Sunil Verma recommended for Consumer Services');
+
+// Negative sector check: Maruti / Trent (Consumer Discretionary) must NOT appear in Consumer Services
+assert(!consumerIds.includes('person-manish-kapoor'), 'Manish Kapoor (Automobile / Discretionary) excluded from Consumer Services');
+assert(!consumerIds.includes('person-neha-singh'), 'Neha Singh (Trent / Discretionary) excluded from Consumer Services');
 
 // getContactsForExpertise
 const crackSpreadRecs = getContactsForExpertise('Crack Spreads', graph);
 assert(crackSpreadRecs.length > 0, 'getContactsForExpertise(Crack Spreads) returns recommendations', crackSpreadRecs.length);
 assert(crackSpreadRecs[0].person.id === 'person-arun-sharma', 'Top recommendation for Crack Spreads is Arun Sharma');
 
-// searchNetwork
-const searchVikramRecs = searchNetwork('Vikram', graph);
-assert(searchVikramRecs.length > 0, 'searchNetwork(Vikram) returns results', searchVikramRecs.length);
-assert(searchVikramRecs[0].person.name === 'Vikram Sen', 'Top search result matches Vikram Sen');
+// -------------------------------------------------------------
+// 6. Free-Text Discovery Search Semantics
+// -------------------------------------------------------------
+console.log('\n6. Free-Text Discovery Search Semantics:');
+
+// Name search
+const vikramSearch = searchNetwork('Vikram', graph);
+assert(vikramSearch.length > 0, 'searchNetwork(Vikram) returns results', vikramSearch.length);
+assert(vikramSearch[0].person.name === 'Vikram Sen', 'Top result is Vikram Sen');
+assert(vikramSearch[0].searchMatchScore > 0, 'searchMatchScore is positive', vikramSearch[0].searchMatchScore);
+assert(vikramSearch[0].searchRankingScore > 0, 'searchRankingScore is positive', vikramSearch[0].searchRankingScore);
+assert(
+  vikramSearch[0].matchReasons.some(m => m.field === 'NAME'),
+  'Match reasons identifies NAME field'
+);
+assert(
+  !vikramSearch[0].matchReasons.some(m => m.category === 'CURRENT_ROLE'),
+  'Search match reasons do NOT assign professional CURRENT_ROLE category'
+);
+
+// Empty and whitespace search queries
+assert(searchNetwork('', graph).length === 0, 'searchNetwork("") returns empty array');
+assert(searchNetwork('   ', graph).length === 0, 'searchNetwork("   ") returns empty array');
+
+// Deduplication: No duplicate points from same field
+for (const res of vikramSearch) {
+  const fields = res.matchReasons.map(m => m.field);
+  const uniqueFields = new Set(fields);
+  assert(fields.length === uniqueFields.size, `Person '${res.person.id}' has deduplicated search match reasons`);
+}
+
+// Search by role title
+const directorSearch = searchNetwork('Director', graph);
+assert(directorSearch.length > 0, 'searchNetwork(Director) returns matching personas', directorSearch.length);
+assert(
+  directorSearch.some(r => r.matchReasons.some(m => m.field === 'CURRENT_ROLE' || m.field === 'PAST_ROLE')),
+  'Director search matches role fields'
+);
+
+// Search by company
+const relianceSearch = searchNetwork('Reliance', graph);
+assert(relianceSearch.length > 0, 'searchNetwork(Reliance) returns matching personas', relianceSearch.length);
+assert(
+  relianceSearch.some(r => r.person.id === 'person-arun-sharma'),
+  'Arun Sharma found via Reliance organisation search'
+);
+
+// Deterministic tie-breaking in search
+for (let i = 0; i < relianceSearch.length - 1; i++) {
+  const a = relianceSearch[i];
+  const b = relianceSearch[i + 1];
+  if (a.searchRankingScore === b.searchRankingScore) {
+    if (a.searchMatchScore === b.searchMatchScore) {
+      if (a.accessibilityScore === b.accessibilityScore) {
+        assert(a.degree <= b.degree, 'Equal search scores tie-break by degree ascending');
+      } else {
+        assert(a.accessibilityScore >= b.accessibilityScore, 'Equal search scores tie-break by accessibility desc');
+      }
+    } else {
+      assert(a.searchMatchScore >= b.searchMatchScore, 'Equal search ranking scores tie-break by searchMatchScore desc');
+    }
+  } else {
+    assert(a.searchRankingScore >= b.searchRankingScore, 'Search results sorted by searchRankingScore desc');
+  }
+}
 
 // queryNetwork discriminated union
 const queryCompRecs = queryNetwork({ type: 'COMPANY', ticker: 'RELIANCE' }, graph);
@@ -281,26 +492,8 @@ assert(queryCompRecs.length === relianceRecs.length, 'queryNetwork with COMPANY 
 const querySectorRecs = queryNetwork({ type: 'SECTOR', sector: 'Consumer Services' }, graph);
 assert(querySectorRecs.length === consumerRecs.length, 'queryNetwork with SECTOR query matches getContactsForSector');
 
-// Deterministic ranking order verification: overallScore desc, relevanceScore desc, accessibilityScore desc
-for (const recs of [relianceRecs, tcsRecs, consumerRecs]) {
-  for (let i = 0; i < recs.length - 1; i++) {
-    const a = recs[i];
-    const b = recs[i + 1];
-    if (a.overallScore === b.overallScore) {
-      if (a.relevanceScore === b.relevanceScore) {
-        if (a.accessibilityScore === b.accessibilityScore) {
-          assert(a.degree <= b.degree, 'Equal scores tie-break by degree ascending');
-        } else {
-          assert(a.accessibilityScore >= b.accessibilityScore, 'Equal overall and relevance tie-break by accessibility desc');
-        }
-      } else {
-        assert(a.relevanceScore >= b.relevanceScore, 'Equal overall scores tie-break by relevance desc');
-      }
-    } else {
-      assert(a.overallScore >= b.overallScore, 'Recommendations are sorted by overallScore desc');
-    }
-  }
-}
+const queryGeneralRecs = queryNetwork({ type: 'GENERAL', query: 'Vikram' }, graph);
+assert(queryGeneralRecs.length === vikramSearch.length, 'queryNetwork with GENERAL query matches searchNetwork');
 
 // -------------------------------------------------------------
 // Summary

@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 3 Complete — Graph Traversal & Explainable Relevance Scoring Implemented  
+**Status:** Phase 1, Step 3.1 Complete — Graph Safety & Recommendation Scoring Refinement Implemented  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `ef0bda40edc422ce48cf3bb412749b9cce308143`
+**Current Commit:** `50dfc180891a4c86e6bebb78b3538b961dcffd65`
 
 ---
 
@@ -713,11 +713,6 @@ To ensure disciplined execution without regressions, the implementation follows 
 
 ### 12.2 Phase 1 Step 3 Completed Graph Intelligence Service & Traversal Specification
 - **Service Implementation**: `src/services/networkService.ts` implements pure deterministic graph construction, directed/undirected traversal capped at 2 hops, explainable relevance scoring, and contact ranking.
-- **Graph Construction (`buildNetworkGraph`)**:
-  - Enforces pre-construction validation using `validateNetworkDataset`. Rejects corrupted datasets with descriptive Errors.
-  - Indexes all 16 personas in `people: ReadonlyMap<string, Person>`.
-  - Maintains strict directionality: 16 direct investor edges are outward directed only from `INVESTOR_ROOT`; 10 person-to-person edges are stored symmetrically in adjacency lists for undirected traversal.
-  - Never mutates input dataset; returns frozen, read-only structures.
 - **Pathfinding (`findIntroductionPaths`)**:
   - Evaluates 1-hop direct investor paths and 2-hop introductions via intermediaries.
   - Strictly caps traversal depth at 2 edges.
@@ -725,15 +720,27 @@ To ensure disciplined execution without regressions, the implementation follows 
   - Calculates normalized accessibility score ($0-100$):
     $$\text{accessibilityScore} = \max\left(0, \min\left(100, \text{pathStrength} \times 20 - (\text{hopCount} - 1) \times 15\right)\right)$$
   - Deterministic sorting: hopCount asc, accessibilityScore desc, intermediary ID asc, edge IDs asc.
-- **Relevance Scoring Engine**:
-  - Multi-signal evaluation for company (`calculateCompanyRelevance`), sector (`calculateSectorRelevance`), expertise (`calculateExpertiseRelevance`), and general search (`calculateGeneralRelevance`).
-  - Grounded sector resolution from verified equity registry and graph employment records.
-  - Every positive point contribution is accompanied by a structured `RecommendationReason`.
-  - Zero-relevance exclusion: candidates with $\text{relevanceScore} \le 0$ are strictly excluded.
-  - Bounded $[0, 100]$ score outputs.
-- **Ranking Formula**:
-  $$\text{overallScore} = \text{round}\left(0.65 \times \text{relevanceScore} + 0.35 \times \text{accessibilityScore}\right)$$
-- **Automated Test Suite**: `scripts/test_network_service.mjs` executes 167 unit tests via `jiti`, passing with 0 failures across graph construction, pathfinding, scoring invariants, and recommendation APIs.
+
+### 12.3 Phase 1 Step 3.1 Refinements: Graph Safety, Precision Matching & Score Reconciliation
+- **Runtime Immutability Abstraction (`ReadOnlyMap<K, V>`)**:
+  - Encapsulates Map collections within an immutable wrapper backed by private storage.
+  - Public mutating methods (`set`, `delete`, `clear`) throw explicit runtime `Error` exceptions.
+  - Graph entities (`Person`, `NetworkEdge`, nested `employmentHistory`, and `expertise` arrays) are recursively deep-frozen using `deepFreeze`.
+  - Guarantees external callers cannot mutate graph nodes, adjacency lists, or metadata.
+- **Sector Matching Precision (`isSectorMatch`)**:
+  - Replaces loose substring checks with an explicit `CANONICAL_SECTOR_MAP` mapping verified sectors/subsectors to canonical clusters (`INFORMATION_TECHNOLOGY`, `FINANCIAL_SERVICES`, `ENERGY`, `CONSUMER_SERVICES`, `CONSUMER_DISCRETIONARY`, `CONSUMER_STAPLES`, `HEALTHCARE`, `TELECOMMUNICATIONS`, `CONSTRUCTION`, etc.).
+  - Generic or ambiguous words (e.g. "Services", "Technology", "Consulting") without a registered canonical cluster strictly return `false`.
+  - Negative tests verify that unrelated sectors sharing generic tokens (such as "Consumer Staples" vs "Consumer Discretionary") never produce false-positive peer-role affiliations.
+- **Mathematical Score Breakdown & Reconciliation (`ScoreBreakdown`)**:
+  - Added strongly-typed `ScoreBreakdown` to `ContactRecommendation` recording `rawRelevanceScore`, `rawAccessibilityScore`, `weightedRelevanceContribution`, `weightedAccessibilityContribution`, `roundingAdjustment`, and `overallScore`.
+  - Guarantees exact mathematical identity:
+    $$\text{weightedRelevance} + \text{weightedAccessibility} + \text{roundingAdjustment} \equiv \text{overallScore}$$
+  - Professional domain relevance reasons (`CURRENT_ROLE`, `PAST_ROLE`, `PEER_ROLE`, `EXPERTISE_EXACT`, `EXPERTISE_PARTIAL`) are cleanly separated from relationship accessibility and path attributes.
+- **Separated Free-Text Discovery Search (`searchNetwork`)**:
+  - Returns `NetworkSearchResult` with explicit `searchMatchScore`, `accessibilityScore`, and bounded composite `searchRankingScore` ($0.7 \times \text{match} + 0.3 \times \text{accessibility}$).
+  - Fields searched: `NAME`, `CURRENT_ORGANISATION`, `CURRENT_ROLE`, `PAST_ORGANISATION`, `PAST_ROLE`, `EXPERTISE`, `HEADLINE_OR_SUMMARY`.
+  - Deduplicates field match contributions and gracefully handles empty/whitespace queries.
+- **Automated Test Suite**: `scripts/test_network_service.mjs` executes 206 comprehensive tests, passing with 0 failures across immutability, sector precision, score reconciliation, and discovery search.
 
 
 ---

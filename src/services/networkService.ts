@@ -6,7 +6,14 @@ import {
   IntroductionPath,
   ContactRecommendation,
   RecommendationReason,
+  ScoreBreakdown,
+  NetworkSearchResult,
+  SearchMatchReason,
   NetworkQuery,
+  CompanyNetworkQuery,
+  SectorNetworkQuery,
+  ExpertiseNetworkQuery,
+  GeneralSearchNetworkQuery,
   ConnectionStrength,
   SYNTHETIC_DATASET_DISCLAIMER,
   OrganisationRef,
@@ -18,18 +25,21 @@ import { PORTFOLIO_RAW_DATA } from '../data/portfolioData';
 /**
  * FINN Network Intelligence Service.
  *
- * Implements pure deterministic graph construction, directed/undirected pathfinding
+ * Implements pure deterministic graph construction, directed/undirected traversal
  * capped at degree 2, explainable relevance scoring, and contact ranking.
  *
  * Architecture Principles:
- * 1. Immutability: Input datasets are never mutated.
+ * 1. Runtime Immutability: Public graph collections are protected by ReadOnlyMap abstractions;
+ *    nested person and edge records are deeply frozen. Input datasets are never mutated.
  * 2. Strict Directionality: Direct investor edges are outward directed from INVESTOR_ROOT.
  *    Person-to-person edges are undirected and symmetric.
- * 3. Explainability: Every positive score component generates a human-readable RecommendationReason.
- * 4. Separation of Concerns: Professional relevance and relationship accessibility are computed
- *    independently. Candidates with zero professional relevance are never recommended.
- * 5. Deterministic Ranking: Strict tie-breaking guarantees reproducible ordering across runs.
- * 6. Synthetic Provenance: All results carry the prototype synthetic dataset disclaimer.
+ * 3. Sector Matching Precision: Strict canonical sector cluster mapping; generic word overlap
+ *    and broad substring guessing are prohibited.
+ * 4. Mathematical Explainability & Reconciliation: Professional relevance and relationship
+ *    accessibility are separated. Overall score explicitly reconciles raw points, weighted contributions,
+ *    and rounding adjustments.
+ * 5. Distinct Search Semantics: Free-text discovery search is decoupled from professional recommendation scoring.
+ * 6. Deterministic Ranking: Strict tie-breaking guarantees reproducible ordering across runs.
  */
 
 // Scoring weight configuration
@@ -48,13 +58,97 @@ export const PROFICIENCY_MULTIPLIERS = {
 } as const;
 
 /**
+ * A protected read-only Map implementation that wraps an internal private Map.
+ * Exposes lookup and iteration but rejects all mutation attempts at runtime.
+ */
+export class ReadOnlyMap<K, V> implements ReadonlyMap<K, V> {
+  private readonly _map: Map<K, V>;
+
+  constructor(entries?: readonly (readonly [K, V])[] | Iterable<readonly [K, V]>) {
+    this._map = new Map(entries);
+    Object.freeze(this);
+  }
+
+  get size(): number {
+    return this._map.size;
+  }
+
+  has(key: K): boolean {
+    return this._map.has(key);
+  }
+
+  get(key: K): V | undefined {
+    return this._map.get(key);
+  }
+
+  entries(): IterableIterator<[K, V]> {
+    return this._map.entries();
+  }
+
+  keys(): IterableIterator<K> {
+    return this._map.keys();
+  }
+
+  values(): IterableIterator<V> {
+    return this._map.values();
+  }
+
+  forEach(callbackfn: (value: V, key: K, map: ReadonlyMap<K, V>) => void, thisArg?: unknown): void {
+    this._map.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+  }
+
+  [Symbol.iterator](): IterableIterator<[K, V]> {
+    return this._map[Symbol.iterator]();
+  }
+
+  // Explicitly prevent mutation methods at runtime
+  set(): never {
+    throw new Error('Cannot mutate ReadOnlyMap: set() is not supported on immutable graph collections.');
+  }
+
+  delete(): never {
+    throw new Error('Cannot mutate ReadOnlyMap: delete() is not supported on immutable graph collections.');
+  }
+
+  clear(): never {
+    throw new Error('Cannot mutate ReadOnlyMap: clear() is not supported on immutable graph collections.');
+  }
+}
+
+/**
+ * Recursively freezes an object, its properties, and nested arrays/objects.
+ * Guarantees deep runtime immutability.
+ */
+export function deepFreeze<T>(obj: T): Readonly<T> {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Object.isFrozen(obj)) {
+    return obj;
+  }
+  Object.freeze(obj);
+  for (const key of Object.getOwnPropertyNames(obj)) {
+    const val = (obj as Record<string, unknown>)[key];
+    if (val !== null && typeof val === 'object' && !Object.isFrozen(val)) {
+      deepFreeze(val);
+    }
+  }
+  return obj;
+}
+
+/**
  * Constructs an in-memory indexed NetworkGraph from a validated NetworkDataset.
  * Throws an explicit Error if the dataset fails validation.
  *
- * Invariants:
+ * Immutability guarantees:
+ * - Public `people` and `adjacency` are wrapped in `ReadOnlyMap` instances.
+ * - All nested `Person`, `EmploymentRecord`, `EducationRecord`, `ExpertiseTag`, and `NetworkEdge`
+ *   objects and arrays are deeply frozen.
+ * - Input dataset remains completely unmutated.
+ *
+ * Edge directionality:
  * - Direct investor edges (sourceNodeId === 'INVESTOR_ROOT') are directed from INVESTOR_ROOT.
  * - Person-to-person edges (sourceNodeId !== 'INVESTOR_ROOT') are undirected and added symmetrically.
- * - Input dataset remains untouched and unmutated.
  */
 export function buildNetworkGraph(dataset: NetworkDataset): NetworkGraph {
   const validation = validateNetworkDataset(dataset);
@@ -64,38 +158,43 @@ export function buildNetworkGraph(dataset: NetworkDataset): NetworkGraph {
     );
   }
 
-  const peopleMap = new Map<string, Person>();
-  for (const person of dataset.people) {
-    peopleMap.set(person.id, Object.freeze({ ...person }));
-  }
+  // Deep clone and deep freeze person records to isolate from input mutations
+  const peopleEntries: [string, Person][] = dataset.people.map((person) => {
+    const cloned = JSON.parse(JSON.stringify(person)) as Person;
+    return [person.id, deepFreeze(cloned)];
+  });
+  const peopleMap = new ReadOnlyMap<string, Person>(peopleEntries);
 
-  const adjacencyMap = new Map<string, NetworkEdge[]>();
-  adjacencyMap.set(dataset.rootInvestorId, []);
+  // Build raw adjacency entries
+  const tempAdjacency = new Map<string, NetworkEdge[]>();
+  tempAdjacency.set(dataset.rootInvestorId, []);
   for (const person of dataset.people) {
-    adjacencyMap.set(person.id, []);
+    tempAdjacency.set(person.id, []);
   }
 
   for (const edge of dataset.edges) {
-    const frozenEdge = Object.freeze({ ...edge });
+    const clonedEdge = deepFreeze(JSON.parse(JSON.stringify(edge)) as NetworkEdge);
     if (edge.sourceNodeId === dataset.rootInvestorId) {
-      // Investor edge: strictly directed from INVESTOR_ROOT only
-      adjacencyMap.get(dataset.rootInvestorId)!.push(frozenEdge);
+      // Investor edge: strictly directed outward from INVESTOR_ROOT only
+      tempAdjacency.get(dataset.rootInvestorId)!.push(clonedEdge);
     } else {
-      // Person-to-person edge: strictly undirected, traversable from both endpoints
-      adjacencyMap.get(edge.sourceNodeId)!.push(frozenEdge);
-      adjacencyMap.get(edge.targetNodeId)!.push(frozenEdge);
+      // Person-to-person edge: strictly undirected, traversable symmetrically from both endpoints
+      tempAdjacency.get(edge.sourceNodeId)!.push(clonedEdge);
+      tempAdjacency.get(edge.targetNodeId)!.push(clonedEdge);
     }
   }
 
-  const readonlyAdjacency = new Map<string, readonly NetworkEdge[]>();
-  for (const [key, edges] of adjacencyMap.entries()) {
-    readonlyAdjacency.set(key, Object.freeze([...edges]));
+  // Deep-freeze each adjacency list and wrap in ReadOnlyMap
+  const adjacencyEntries: [string, readonly NetworkEdge[]][] = [];
+  for (const [key, edges] of tempAdjacency.entries()) {
+    adjacencyEntries.push([key, Object.freeze([...edges])]);
   }
+  const adjacencyMap = new ReadOnlyMap<string, readonly NetworkEdge[]>(adjacencyEntries);
 
   return Object.freeze({
     rootInvestorId: dataset.rootInvestorId,
     people: peopleMap,
-    adjacency: readonlyAdjacency,
+    adjacency: adjacencyMap,
     totalNodes: dataset.people.length + 1,
     totalEdges: dataset.edges.length,
   });
@@ -108,10 +207,6 @@ export function buildNetworkGraph(dataset: NetworkDataset): NetworkGraph {
  * - Direct connection (hopCount: 1): connection strength (1-5) * 20 (range: 20 to 100)
  * - Second-degree connection (hopCount: 2): weakest connection strength along the path * 20
  *   minus SECOND_HOP_PENALTY (15 points) (range: 5 to 85).
- *
- * Grounding rationale:
- * The weakest link on a path bounds the accessibility of the introduction. Each additional hop
- * increases social friction, modelled here as a fixed 15-point penalty.
  */
 export function calculatePathAccessibility(
   pathStrength: ConnectionStrength,
@@ -169,7 +264,6 @@ export function findIntroductionPaths(
   // 2. Second-degree paths (INVESTOR_ROOT -> Intermediary -> Target)
   for (const edge1 of rootEdges) {
     const intermediaryId = edge1.targetNodeId;
-    // Skip if intermediary is the target itself (already handled as 1-hop direct path)
     if (intermediaryId === targetPersonId) {
       continue;
     }
@@ -181,7 +275,6 @@ export function findIntroductionPaths(
 
     const intermediaryEdges = graph.adjacency.get(intermediaryId) || [];
     for (const edge2 of intermediaryEdges) {
-      // Must not be an investor edge
       if (
         edge2.sourceNodeId === graph.rootInvestorId ||
         edge2.targetNodeId === graph.rootInvestorId
@@ -189,7 +282,6 @@ export function findIntroductionPaths(
         continue;
       }
 
-      // Check whether edge2 connects intermediaryId and targetPersonId symmetrically
       const connects =
         (edge2.sourceNodeId === intermediaryId && edge2.targetNodeId === targetPersonId) ||
         (edge2.targetNodeId === intermediaryId && edge2.sourceNodeId === targetPersonId);
@@ -236,15 +328,123 @@ export function findIntroductionPaths(
 }
 
 /**
+ * Explicit canonical sector cluster mapping.
+ * Substring matching is strictly prohibited to eliminate false positives between distinct
+ * industries sharing generic words (e.g. "Consumer", "Technology", "Services", "Consulting").
+ */
+export const CANONICAL_SECTOR_MAP: Readonly<Record<string, string>> = Object.freeze({
+  // Information Technology
+  'information technology': 'INFORMATION_TECHNOLOGY',
+  'it services': 'INFORMATION_TECHNOLOGY',
+  'it services & consulting': 'INFORMATION_TECHNOLOGY',
+  'it consulting & software': 'INFORMATION_TECHNOLOGY',
+
+  // Financial Services / Banking
+  'financial services': 'FINANCIAL_SERVICES',
+  'banking & financials': 'FINANCIAL_SERVICES',
+  'banking & financial services': 'FINANCIAL_SERVICES',
+  'private sector bank': 'FINANCIAL_SERVICES',
+  'public sector bank': 'FINANCIAL_SERVICES',
+  'non-banking financial company (nbfc)': 'FINANCIAL_SERVICES',
+
+  // Energy & Petrochemicals
+  'energy': 'ENERGY',
+  'energy & petrochemicals': 'ENERGY',
+  'oil & gas refining & marketing': 'ENERGY',
+  'energy & industrials advisory': 'ENERGY',
+  'energy, retail & telecommunications': 'ENERGY',
+  'conglomerate / energy': 'ENERGY',
+
+  // Consumer Services (Quick Commerce / Food Delivery / Consumer Internet)
+  'consumer services': 'CONSUMER_SERVICES',
+  'consumer internet & services': 'CONSUMER_SERVICES',
+  'consumer goods & internet services': 'CONSUMER_SERVICES',
+  'quick commerce / food delivery': 'CONSUMER_SERVICES',
+  'internet & direct marketing retail': 'CONSUMER_SERVICES',
+  'consumer internet ipo': 'CONSUMER_SERVICES',
+
+  // Consumer Discretionary (Automobile / Apparel Retail)
+  'consumer discretionary': 'CONSUMER_DISCRETIONARY',
+  'automobile': 'CONSUMER_DISCRETIONARY',
+  'automobile manufacturers': 'CONSUMER_DISCRETIONARY',
+  'apparel retail': 'CONSUMER_DISCRETIONARY',
+  'retail / consumer discretionary': 'CONSUMER_DISCRETIONARY',
+
+  // Consumer Staples (FMCG / Personal Care)
+  'consumer staples': 'CONSUMER_STAPLES',
+  'personal care & household products': 'CONSUMER_STAPLES',
+  'fmcg / diversified': 'CONSUMER_STAPLES',
+  'consumer goods': 'CONSUMER_STAPLES',
+
+  // Healthcare & Pharmaceuticals
+  'healthcare': 'HEALTHCARE',
+  'healthcare & pharma': 'HEALTHCARE',
+  'pharmaceuticals': 'HEALTHCARE',
+
+  // Telecommunications
+  'telecommunication': 'TELECOMMUNICATIONS',
+  'telecommunications': 'TELECOMMUNICATIONS',
+  'telecom services': 'TELECOMMUNICATIONS',
+
+  // Construction & Civil Engineering
+  'construction': 'CONSTRUCTION',
+  'civil construction & engineering': 'CONSTRUCTION',
+  'infrastructure & engineering': 'CONSTRUCTION',
+  'capital goods / infrastructure': 'CONSTRUCTION',
+
+  // Financial Technology (Fintech)
+  'financial technology (fintech)': 'FINTECH',
+
+  // Alternative Investments / Specialist Advisory
+  'private credit & special situations': 'PRIVATE_CREDIT',
+  'venture capital & growth equity': 'VENTURE_CAPITAL',
+  'management consulting': 'MANAGEMENT_CONSULTING',
+  'governance & regulatory advisory': 'GOVERNANCE_ADVISORY',
+  'strategy practice': 'STRATEGY_PRACTICE',
+  'infrastructure & private equity practice': 'INFRASTRUCTURE_PE',
+  'private equity & consumer tech practice': 'CONSUMER_TECH_PE',
+});
+
+/**
+ * Checks whether two sector strings are compatible/matching.
+ * Strictly uses exact case-insensitive match or canonical cluster match.
+ * Unknown or ambiguous classifications return false.
+ */
+export function isSectorMatch(sectorA: string, sectorB: string): boolean {
+  if (!sectorA || !sectorB) return false;
+  const sA = sectorA.trim().toLowerCase();
+  const sB = sectorB.trim().toLowerCase();
+
+  const clusterA = CANONICAL_SECTOR_MAP[sA];
+  const clusterB = CANONICAL_SECTOR_MAP[sB];
+
+  if (!clusterA || !clusterB) {
+    return false;
+  }
+
+  return clusterA === clusterB;
+}
+
+/**
+ * Safely extracts sector string from an OrganisationRef if present.
+ */
+export function getOrganisationSector(org: OrganisationRef): string | undefined {
+  if ('sector' in org && typeof org.sector === 'string') {
+    return org.sector;
+  }
+  return undefined;
+}
+
+/**
  * Resolves the primary sector for a listed equity ticker.
  * Grounded in:
  * 1. Listed employment records in the network graph.
  * 2. PORTFOLIO_RAW_DATA definitions.
  */
 export function resolveTickerSector(ticker: string, graph?: NetworkGraph): string | undefined {
+  if (!ticker || typeof ticker !== 'string') return undefined;
   const normTicker = ticker.trim().toUpperCase();
 
-  // Check graph personas for an explicit listed organisation ref with sector
   if (graph) {
     for (const person of graph.people.values()) {
       for (const emp of person.employmentHistory) {
@@ -259,7 +459,6 @@ export function resolveTickerSector(ticker: string, graph?: NetworkGraph): strin
     }
   }
 
-  // Fallback to portfolio registry
   const portfolioStock = PORTFOLIO_RAW_DATA.find((s) => s.ticker === normTicker);
   if (portfolioStock?.sector) {
     return portfolioStock.sector;
@@ -269,69 +468,15 @@ export function resolveTickerSector(ticker: string, graph?: NetworkGraph): strin
 }
 
 /**
- * Safely extracts sector string from an OrganisationRef if present.
- */
-export function getOrganisationSector(org: OrganisationRef): string | undefined {
-  if ('sector' in org && typeof org.sector === 'string') {
-    return org.sector;
-  }
-  return undefined;
-}
-
-/**
- * Checks whether two sector strings are compatible/matching,
- * accounting for synonyms in financial reporting (e.g. IT vs Information Technology).
- */
-export function isSectorMatch(sectorA: string, sectorB: string): boolean {
-  const sA = sectorA.toLowerCase().trim();
-  const sB = sectorB.toLowerCase().trim();
-  if (sA === sB) return true;
-
-  // Multi-word substring inclusion (only for terms longer than 3 characters to avoid false matches like "it" in "credit")
-  if (sA.length > 3 && sB.length > 3) {
-    if (sA.includes(sB) || sB.includes(sA)) return true;
-  }
-
-  const isIT = (s: string) =>
-    /\b(it|information technology|it services|software)\b/i.test(s);
-  if (isIT(sA) && isIT(sB)) return true;
-
-  const isBank = (s: string) =>
-    /\b(bank|banking|financial|financials|financial services|nbfc)\b/i.test(s);
-  if (isBank(sA) && isBank(sB)) return true;
-
-  const isHealth = (s: string) =>
-    /\b(health|healthcare|pharma|pharmaceutical|pharmaceuticals)\b/i.test(s);
-  if (isHealth(sA) && isHealth(sB)) return true;
-
-  const isTelecom = (s: string) =>
-    /\b(telecom|telecommunication|telecommunications)\b/i.test(s);
-  if (isTelecom(sA) && isTelecom(sB)) return true;
-
-  const isConsumer = (s: string) =>
-    /\b(consumer|consumer services|consumer staples|consumer discretionary|retail)\b/i.test(s);
-  if (isConsumer(sA) && isConsumer(sB)) return true;
-
-  const isEnergy = (s: string) =>
-    /\b(energy|petrochemical|petrochemicals|refining|oil & gas)\b/i.test(s);
-  if (isEnergy(sA) && isEnergy(sB)) return true;
-
-  const isAuto = (s: string) =>
-    /\b(auto|automobile|automotive|vehicles)\b/i.test(s);
-  if (isAuto(sA) && isAuto(sB)) return true;
-
-  return false;
-}
-
-/**
  * Calculates professional relevance score and reasons for a COMPANY ticker query.
  *
- * Potential signals:
- * - Current employment at the requested company (+60 points, CURRENT_ROLE)
- * - Previous employment at the requested company (+35 points, PAST_ROLE)
+ * Signals:
+ * - Current employment at target company (+60 points, CURRENT_ROLE)
+ * - Previous employment at target company (+35 points, PAST_ROLE)
  * - Employment at a peer company in the same sector (+20 points current / +10 points past, PEER_ROLE)
- * - Explicit expertise matching company sector/domain (+15 points exact / +10 points partial * proficiency)
+ * - Explicit expertise matching company sector (+15 points exact / +10 points partial * proficiency)
  *
+ * Unknown tickers yield 0 relevance and empty reasons.
  * Bounded between 0 and 100.
  */
 export function calculateCompanyRelevance(
@@ -339,12 +484,21 @@ export function calculateCompanyRelevance(
   rawTicker: string,
   graph: NetworkGraph
 ): { relevanceScore: number; reasons: RecommendationReason[] } {
+  if (!rawTicker || typeof rawTicker !== 'string' || !rawTicker.trim()) {
+    return { relevanceScore: 0, reasons: [] };
+  }
+
   const ticker = rawTicker.trim().toUpperCase();
   const reasons: RecommendationReason[] = [];
   let score = 0;
 
   const companyMeta = LOCAL_VERIFIED_SYMBOL_REGISTRY[ticker];
   const targetSector = resolveTickerSector(ticker, graph);
+
+  // If ticker is completely unverified in registry and has no sector, yield 0
+  if (!companyMeta && !targetSector) {
+    return { relevanceScore: 0, reasons: [] };
+  }
 
   // 1. Direct employment records at target company
   for (const emp of person.employmentHistory) {
@@ -371,7 +525,7 @@ export function calculateCompanyRelevance(
     }
   }
 
-  // 2. Peer organisation employment in the same sector
+  // 2. Peer organisation employment in the same verified sector
   if (targetSector) {
     for (const emp of person.employmentHistory) {
       const isSameCompany =
@@ -399,8 +553,7 @@ export function calculateCompanyRelevance(
             supportingEvidence: `Past tenure (${emp.startDate} to ${emp.endDate}) in sector peer`,
           });
         }
-        // At most one peer role contribution to avoid runaway accumulation
-        break;
+        break; // At most one peer role contribution to avoid inflated accumulation
       }
     }
   }
@@ -412,8 +565,7 @@ export function calculateCompanyRelevance(
       const tagLower = exp.name.toLowerCase();
       const sectorLower = targetSector.toLowerCase();
 
-      const exactMatch = tagLower.includes(sectorLower) || sectorLower.includes(tagLower);
-      if (exactMatch) {
+      if (isSectorMatch(tagLower, sectorLower)) {
         const contribution = Math.round(15 * mult);
         score += contribution;
         reasons.push({
@@ -427,7 +579,7 @@ export function calculateCompanyRelevance(
     }
   }
 
-  // Check company name / domain in headline or summary
+  // Check company name focus in headline or summary
   if (companyMeta) {
     const compNameLower = companyMeta.companyName.toLowerCase();
     if (
@@ -464,11 +616,14 @@ export function calculateSectorRelevance(
   person: Person,
   sectorQuery: string
 ): { relevanceScore: number; reasons: RecommendationReason[] } {
+  if (!sectorQuery || typeof sectorQuery !== 'string' || !sectorQuery.trim()) {
+    return { relevanceScore: 0, reasons: [] };
+  }
+
   const query = sectorQuery.trim();
   const reasons: RecommendationReason[] = [];
   let score = 0;
 
-  // 1. Employment history matching sector
   let hasCurrentSectorMatch = false;
   let hasPastSectorMatch = false;
 
@@ -499,13 +654,12 @@ export function calculateSectorRelevance(
     }
   }
 
-  // 2. Expertise matching sector
   for (const exp of person.expertise) {
     const mult = PROFICIENCY_MULTIPLIERS[exp.proficiency] ?? 0.8;
     const tagName = exp.name.toLowerCase();
     const qLower = query.toLowerCase();
 
-    if (tagName === qLower || tagName.includes(qLower) || isSectorMatch(tagName, qLower)) {
+    if (tagName === qLower || isSectorMatch(tagName, qLower)) {
       const contribution = Math.round(25 * mult);
       score += contribution;
       reasons.push({
@@ -514,7 +668,7 @@ export function calculateSectorRelevance(
         scoreContribution: contribution,
         supportingEvidence: `Tag ID: ${exp.id}, Category: ${exp.category}`,
       });
-    } else if (exp.category === 'SECTOR_INDUSTRY') {
+    } else if (exp.category === 'SECTOR_INDUSTRY' && tagName.includes(qLower)) {
       const contribution = Math.round(15 * mult);
       score += contribution;
       reasons.push({
@@ -544,6 +698,10 @@ export function calculateExpertiseRelevance(
   person: Person,
   expertiseQuery: string
 ): { relevanceScore: number; reasons: RecommendationReason[] } {
+  if (!expertiseQuery || typeof expertiseQuery !== 'string' || !expertiseQuery.trim()) {
+    return { relevanceScore: 0, reasons: [] };
+  }
+
   const query = expertiseQuery.trim().toLowerCase();
   const tokens = query.split(/\s+/).filter((t) => t.length > 2);
   const reasons: RecommendationReason[] = [];
@@ -566,7 +724,7 @@ export function calculateExpertiseRelevance(
       });
     } else {
       // Partial keyword match
-      const matchesTokens = tokens.some(
+      const matchesTokens = tokens.length > 0 && tokens.some(
         (token) => tagNameLower.includes(token) || tagIdLower.includes(token)
       );
       if (matchesTokens) {
@@ -585,7 +743,7 @@ export function calculateExpertiseRelevance(
   // Profile headline/responsibilities match
   const headlineLower = person.currentHeadline.toLowerCase();
   const summaryLower = person.summary.toLowerCase();
-  const headlineMatch = tokens.some((t) => headlineLower.includes(t) || summaryLower.includes(t));
+  const headlineMatch = tokens.length > 0 && tokens.some((t) => headlineLower.includes(t) || summaryLower.includes(t));
   if (headlineMatch) {
     const contribution = 15;
     score += contribution;
@@ -602,94 +760,60 @@ export function calculateExpertiseRelevance(
 }
 
 /**
- * Calculates professional relevance score and reasons for a GENERAL text search.
- * Searches across name, current organisation/role, past organisation/role, and expertise.
+ * Calculates mathematically reconciled ScoreBreakdown object.
+ *
+ * Guarantees:
+ * - overallScore = Math.round(0.65 * relevanceScore + 0.35 * accessibilityScore)
+ * - If relevanceScore is 0, overallScore is strictly 0.
+ * - weightedRelevanceContribution = Math.round(0.65 * relevanceScore)
+ * - weightedAccessibilityContribution = Math.round(0.35 * accessibilityScore)
+ * - roundingAdjustment accounts for integer rounding delta:
+ *   weightedRelevanceContribution + weightedAccessibilityContribution + roundingAdjustment === overallScore
  */
-export function calculateGeneralRelevance(
-  person: Person,
-  query: string,
-  graph: NetworkGraph
-): { relevanceScore: number; reasons: RecommendationReason[] } {
-  const q = query.trim().toLowerCase();
-  const tokens = q.split(/\s+/).filter((t) => t.length > 1);
-  const reasons: RecommendationReason[] = [];
-  let score = 0;
+export function calculateScoreBreakdown(
+  relevanceScore: number,
+  accessibilityScore: number
+): ScoreBreakdown {
+  const rawRelevanceScore = Math.max(0, Math.min(100, relevanceScore));
+  const rawAccessibilityScore = Math.max(0, Math.min(100, accessibilityScore));
 
-  // Check if query corresponds to a verified company ticker
-  const normQ = query.trim().toUpperCase();
-  if (normQ in LOCAL_VERIFIED_SYMBOL_REGISTRY) {
-    const compResult = calculateCompanyRelevance(person, normQ, graph);
-    if (compResult.relevanceScore > 0) {
-      score += compResult.relevanceScore;
-      reasons.push(...compResult.reasons);
-    }
+  if (rawRelevanceScore <= 0) {
+    return {
+      rawRelevanceScore,
+      rawAccessibilityScore,
+      weightedRelevanceContribution: 0,
+      weightedAccessibilityContribution: 0,
+      roundingAdjustment: 0,
+      overallScore: 0,
+      reconciliationSummary: `Relevance is 0 -> overallScore strictly 0 (no professional relevance)`,
+    };
   }
 
-  // 1. Name match
-  const nameLower = person.name.toLowerCase();
-  if (nameLower === q) {
-    const contribution = 80;
-    score += contribution;
-    reasons.push({
-      category: 'RELATIONSHIP_PATH',
-      description: `Exact name match for '${person.name}'`,
-      scoreContribution: contribution,
-      supportingEvidence: `Person ID: ${person.id}`,
-    });
-  } else if (tokens.some((t) => nameLower.includes(t))) {
-    const contribution = 50;
-    score += contribution;
-    reasons.push({
-      category: 'RELATIONSHIP_PATH',
-      description: `Name match for '${person.name}'`,
-      scoreContribution: contribution,
-      supportingEvidence: `Person ID: ${person.id}`,
-    });
-  }
+  const exactWeightedRel = SCORING_WEIGHTS.RELEVANCE_WEIGHT * rawRelevanceScore;
+  const exactWeightedAcc = SCORING_WEIGHTS.ACCESSIBILITY_WEIGHT * rawAccessibilityScore;
+  const exactTotal = exactWeightedRel + exactWeightedAcc;
+  const overallScore = Math.max(0, Math.min(100, Math.round(exactTotal)));
 
-  // 2. Current company & role
-  if (person.currentOrganisation) {
-    const orgNameLower = person.currentOrganisation.name.toLowerCase();
-    const roleTitleLower = (person.currentRoleTitle ?? '').toLowerCase();
-    if (orgNameLower.includes(q) || (roleTitleLower && roleTitleLower.includes(q))) {
-      const contribution = 40;
-      score += contribution;
-      reasons.push({
-        category: 'CURRENT_ROLE',
-        description: `Current role as ${person.currentRoleTitle} at ${person.currentOrganisation.name}`,
-        scoreContribution: contribution,
-        supportingEvidence: person.currentHeadline,
-      });
-    }
-  }
+  const weightedRelevanceContribution = Math.round(exactWeightedRel);
+  const weightedAccessibilityContribution = Math.round(exactWeightedAcc);
+  const roundingAdjustment =
+    overallScore - (weightedRelevanceContribution + weightedAccessibilityContribution);
 
-  // 3. Expertise match
-  const expResult = calculateExpertiseRelevance(person, query);
-  if (expResult.relevanceScore > 0) {
-    score += expResult.relevanceScore;
-    reasons.push(...expResult.reasons);
-  }
+  const reconciliationSummary = `65% * ${rawRelevanceScore} (${weightedRelevanceContribution}) + 35% * ${rawAccessibilityScore} (${weightedAccessibilityContribution})${
+    roundingAdjustment !== 0
+      ? ` + rounding (${roundingAdjustment > 0 ? '+' : ''}${roundingAdjustment})`
+      : ''
+  } = ${overallScore}`;
 
-  // 4. Past company
-  for (const emp of person.employmentHistory) {
-    if (!emp.isCurrent) {
-      const orgNameLower = emp.organisation.name.toLowerCase();
-      if (orgNameLower.includes(q)) {
-        const contribution = 20;
-        score += contribution;
-        reasons.push({
-          category: 'PAST_ROLE',
-          description: `Prior experience at ${emp.organisation.name}`,
-          scoreContribution: contribution,
-          supportingEvidence: `Role: ${emp.roleTitle} (${emp.startDate} - ${emp.endDate})`,
-        });
-        break;
-      }
-    }
-  }
-
-  const boundedScore = Math.max(0, Math.min(100, score));
-  return { relevanceScore: boundedScore, reasons };
+  return {
+    rawRelevanceScore,
+    rawAccessibilityScore,
+    weightedRelevanceContribution,
+    weightedAccessibilityContribution,
+    roundingAdjustment,
+    overallScore,
+    reconciliationSummary,
+  };
 }
 
 /**
@@ -698,7 +822,6 @@ export function calculateGeneralRelevance(
  * Formula:
  * - overallScore = Math.round(0.65 * relevanceScore + 0.35 * accessibilityScore)
  * - INVARIANT: If relevanceScore is 0, overallScore is strictly 0.
- *   A strong personal relationship alone never justifies professional recommendation.
  */
 export function calculateOverallScore(
   relevanceScore: number,
@@ -707,10 +830,7 @@ export function calculateOverallScore(
   if (relevanceScore <= 0) {
     return 0;
   }
-  const weighted =
-    SCORING_WEIGHTS.RELEVANCE_WEIGHT * relevanceScore +
-    SCORING_WEIGHTS.ACCESSIBILITY_WEIGHT * accessibilityScore;
-  return Math.max(0, Math.min(100, Math.round(weighted)));
+  return calculateScoreBreakdown(relevanceScore, accessibilityScore).overallScore;
 }
 
 /**
@@ -755,20 +875,7 @@ function buildRecommendation(
 
   const bestPath = paths[0];
   const accessibilityScore = bestPath.accessibilityScore;
-  const overallScore = calculateOverallScore(relevanceScore, accessibilityScore);
-
-  // Add relationship path reason explaining the introduction route
-  const completeReasons: RecommendationReason[] = [
-    ...reasons,
-    {
-      category: 'RELATIONSHIP_PATH',
-      description: bestPath.explanation,
-      scoreContribution: Math.round(
-        SCORING_WEIGHTS.ACCESSIBILITY_WEIGHT * accessibilityScore
-      ),
-      supportingEvidence: `Degree: ${bestPath.degree}, Path Strength: ${bestPath.pathStrength}/5, Accessibility Score: ${accessibilityScore}`,
-    },
-  ];
+  const scoreBreakdown = calculateScoreBreakdown(relevanceScore, accessibilityScore);
 
   return {
     person,
@@ -777,8 +884,9 @@ function buildRecommendation(
     degree: bestPath.degree,
     accessibilityScore,
     relevanceScore,
-    overallScore,
-    reasons: completeReasons,
+    overallScore: scoreBreakdown.overallScore,
+    scoreBreakdown,
+    reasons,
     provenanceDisclaimer: SYNTHETIC_DATASET_DISCLAIMER,
   };
 }
@@ -791,6 +899,10 @@ export function getContactsForCompany(
   ticker: string,
   graph: NetworkGraph
 ): ContactRecommendation[] {
+  if (!ticker || typeof ticker !== 'string' || !ticker.trim()) {
+    return [];
+  }
+
   const recommendations: ContactRecommendation[] = [];
 
   for (const person of graph.people.values()) {
@@ -816,6 +928,10 @@ export function getContactsForSector(
   sector: string,
   graph: NetworkGraph
 ): ContactRecommendation[] {
+  if (!sector || typeof sector !== 'string' || !sector.trim()) {
+    return [];
+  }
+
   const recommendations: ContactRecommendation[] = [];
 
   for (const person of graph.people.values()) {
@@ -841,6 +957,10 @@ export function getContactsForExpertise(
   query: string,
   graph: NetworkGraph
 ): ContactRecommendation[] {
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return [];
+  }
+
   const recommendations: ContactRecommendation[] = [];
 
   for (const person of graph.people.values()) {
@@ -859,37 +979,236 @@ export function getContactsForExpertise(
 }
 
 /**
- * Free-text search across the network for a keyword, name, role, or company.
- * Excludes candidates with zero professional relevance.
+ * Free-text discovery search across the network.
+ *
+ * Distinct from professional investment recommendation scoring:
+ * - Supports name, current role, current organisation, past role, past organisation, and expertise.
+ * - Empty or whitespace queries return [] immediately.
+ * - Deduplicates match contributions across fields to prevent inflated scores.
+ * - Returns NetworkSearchResult with explicit searchMatchScore and searchRankingScore.
  */
 export function searchNetwork(
   query: string,
   graph: NetworkGraph
-): ContactRecommendation[] {
-  const recommendations: ContactRecommendation[] = [];
-
-  for (const person of graph.people.values()) {
-    const { relevanceScore, reasons } = calculateGeneralRelevance(person, query, graph);
-    if (relevanceScore <= 0) continue;
-
-    const paths = findIntroductionPaths(person.id, graph);
-    const rec = buildRecommendation(person, paths, relevanceScore, reasons);
-    if (rec) {
-      recommendations.push(rec);
-    }
+): NetworkSearchResult[] {
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return [];
   }
 
-  sortRecommendations(recommendations);
-  return recommendations;
+  const q = query.trim().toLowerCase();
+  const tokens = q.split(/\s+/).filter((t) => t.length > 1);
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  const results: NetworkSearchResult[] = [];
+
+  for (const person of graph.people.values()) {
+    const matchReasons: SearchMatchReason[] = [];
+    let score = 0;
+
+    // 1. Name match (at most one contribution)
+    const nameLower = person.name.toLowerCase();
+    if (nameLower === q) {
+      const contribution = 60;
+      score += contribution;
+      matchReasons.push({
+        field: 'NAME',
+        description: `Exact name match for '${person.name}'`,
+        matchedText: person.name,
+        scoreContribution: contribution,
+      });
+    } else if (tokens.some((t) => nameLower.includes(t))) {
+      const contribution = 35;
+      score += contribution;
+      matchReasons.push({
+        field: 'NAME',
+        description: `Name matches search keyword '${query}'`,
+        matchedText: person.name,
+        scoreContribution: contribution,
+      });
+    }
+
+    // 2. Current Organisation match (at most one contribution)
+    if (person.currentOrganisation) {
+      const orgLower = person.currentOrganisation.name.toLowerCase();
+      if (tokens.some((t) => orgLower.includes(t))) {
+        const contribution = 25;
+        score += contribution;
+        matchReasons.push({
+          field: 'CURRENT_ORGANISATION',
+          description: `Current organisation '${person.currentOrganisation.name}' matches query`,
+          matchedText: person.currentOrganisation.name,
+          scoreContribution: contribution,
+        });
+      }
+    }
+
+    // 3. Current Role match (at most one contribution)
+    if (person.currentRoleTitle) {
+      const roleLower = person.currentRoleTitle.toLowerCase();
+      if (tokens.some((t) => roleLower.includes(t))) {
+        const contribution = 20;
+        score += contribution;
+        matchReasons.push({
+          field: 'CURRENT_ROLE',
+          description: `Current role '${person.currentRoleTitle}' matches query`,
+          matchedText: person.currentRoleTitle,
+          scoreContribution: contribution,
+        });
+      }
+    }
+
+    // 4. Past Organisation match (at most one contribution across all past roles)
+    let pastOrgMatched = false;
+    for (const emp of person.employmentHistory) {
+      if (!emp.isCurrent) {
+        const pastOrgLower = emp.organisation.name.toLowerCase();
+        if (tokens.some((t) => pastOrgLower.includes(t)) && !pastOrgMatched) {
+          const contribution = 15;
+          score += contribution;
+          matchReasons.push({
+            field: 'PAST_ORGANISATION',
+            description: `Prior experience at '${emp.organisation.name}' matches query`,
+            matchedText: emp.organisation.name,
+            scoreContribution: contribution,
+          });
+          pastOrgMatched = true;
+          break;
+        }
+      }
+    }
+
+    // 5. Past Role match (at most one contribution across all past roles)
+    let pastRoleMatched = false;
+    for (const emp of person.employmentHistory) {
+      if (!emp.isCurrent) {
+        const pastRoleLower = emp.roleTitle.toLowerCase();
+        if (tokens.some((t) => pastRoleLower.includes(t)) && !pastRoleMatched) {
+          const contribution = 10;
+          score += contribution;
+          matchReasons.push({
+            field: 'PAST_ROLE',
+            description: `Prior title '${emp.roleTitle}' matches query`,
+            matchedText: emp.roleTitle,
+            scoreContribution: contribution,
+          });
+          pastRoleMatched = true;
+          break;
+        }
+      }
+    }
+
+    // 6. Expertise tag match (at most one contribution)
+    let expMatched = false;
+    for (const exp of person.expertise) {
+      const expLower = exp.name.toLowerCase();
+      if (expLower === q) {
+        const contribution = 30;
+        score += contribution;
+        matchReasons.push({
+          field: 'EXPERTISE',
+          description: `Exact expertise match on '${exp.name}'`,
+          matchedText: exp.name,
+          scoreContribution: contribution,
+        });
+        expMatched = true;
+        break;
+      } else if (tokens.some((t) => expLower.includes(t)) && !expMatched) {
+        const contribution = 15;
+        score += contribution;
+        matchReasons.push({
+          field: 'EXPERTISE',
+          description: `Expertise '${exp.name}' matches query keyword`,
+          matchedText: exp.name,
+          scoreContribution: contribution,
+        });
+        expMatched = true;
+        break;
+      }
+    }
+
+    // 7. Headline or summary match (only if neither role nor org matched)
+    if (matchReasons.length === 0 || (!pastRoleMatched && !pastOrgMatched)) {
+      const headlineLower = person.currentHeadline.toLowerCase();
+      const summaryLower = person.summary.toLowerCase();
+      if (tokens.some((t) => headlineLower.includes(t) || summaryLower.includes(t))) {
+        const contribution = 10;
+        score += contribution;
+        matchReasons.push({
+          field: 'HEADLINE_OR_SUMMARY',
+          description: `Profile summary highlights matching terms`,
+          matchedText: person.currentHeadline,
+          scoreContribution: contribution,
+        });
+      }
+    }
+
+    if (score <= 0 || matchReasons.length === 0) {
+      continue;
+    }
+
+    const searchMatchScore = Math.max(0, Math.min(100, score));
+    const paths = findIntroductionPaths(person.id, graph);
+    const bestPath = paths[0];
+    const accessibilityScore = bestPath ? bestPath.accessibilityScore : 0;
+    const searchRankingScore = Math.max(
+      0,
+      Math.min(100, Math.round(0.7 * searchMatchScore + 0.3 * accessibilityScore))
+    );
+
+    results.push({
+      person,
+      path: bestPath,
+      allPaths: paths,
+      degree: bestPath ? bestPath.degree : 1,
+      searchMatchScore,
+      accessibilityScore,
+      searchRankingScore,
+      matchReasons,
+      provenanceDisclaimer: SYNTHETIC_DATASET_DISCLAIMER,
+    });
+  }
+
+  // Deterministic sorting
+  results.sort((a, b) => {
+    if (b.searchRankingScore !== a.searchRankingScore) {
+      return b.searchRankingScore - a.searchRankingScore;
+    }
+    if (b.searchMatchScore !== a.searchMatchScore) {
+      return b.searchMatchScore - a.searchMatchScore;
+    }
+    if (b.accessibilityScore !== a.accessibilityScore) {
+      return b.accessibilityScore - a.accessibilityScore;
+    }
+    if (a.degree !== b.degree) {
+      return a.degree - b.degree;
+    }
+    return a.person.name.localeCompare(b.person.name);
+  });
+
+  return results;
 }
 
 /**
- * Dispatches a typed NetworkQuery discriminated union to the appropriate recommendation API.
+ * Dispatches a typed NetworkQuery discriminated union to the appropriate service API.
  */
+export function queryNetwork(
+  query: CompanyNetworkQuery | SectorNetworkQuery | ExpertiseNetworkQuery,
+  graph: NetworkGraph
+): ContactRecommendation[];
+export function queryNetwork(
+  query: GeneralSearchNetworkQuery,
+  graph: NetworkGraph
+): NetworkSearchResult[];
 export function queryNetwork(
   query: NetworkQuery,
   graph: NetworkGraph
-): ContactRecommendation[] {
+): ContactRecommendation[] | NetworkSearchResult[];
+export function queryNetwork(
+  query: NetworkQuery,
+  graph: NetworkGraph
+): ContactRecommendation[] | NetworkSearchResult[] {
   switch (query.type) {
     case 'COMPANY':
       return getContactsForCompany(query.ticker, graph);
