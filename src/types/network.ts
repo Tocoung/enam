@@ -416,9 +416,28 @@ export type QueryExecutionStatus =
   | 'AMBIGUOUS'
   | 'EMPTY';
 
+/**
+ * Intermediary peer along a 2nd-degree path who can facilitate an introduction
+ * to the target persona. Strictly distinct from domain/professional expertise recommendations.
+ */
+export interface IntroductionFacilitator {
+  readonly person: Person;
+  readonly targetPerson: Person;
+  readonly path: IntroductionPath;
+  readonly facilitatedPathSummary: string;
+  readonly accessibilityScore: number;
+  readonly rankingScore: number;
+  readonly roleBadge: 'Introduction Facilitator';
+  readonly reasons: readonly RecommendationReason[];
+  readonly explanation: string;
+  readonly provenanceDisclaimer: string;
+}
+
 export interface QueryExecutionResult {
   readonly query: InterpretedNetworkQuery;
   readonly recommendations: readonly ContactRecommendation[];
+  readonly targetRecommendation?: ContactRecommendation;
+  readonly introductionFacilitators?: readonly IntroductionFacilitator[];
   readonly personConnectionPaths?: readonly IntroductionPath[];
   readonly status: QueryExecutionStatus;
   readonly statusMessage: string;

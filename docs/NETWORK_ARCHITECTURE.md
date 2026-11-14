@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 5 Implemented — Review Pending (Direct Network Intelligence Query Workflow)  
+**Status:** Phase 1, Step 5.1 Implemented — Review Pending (Organisation Matching & Introduction Recommendation Semantics)  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `da246bbd2b7c269eb67e4e6503816e8d980183ac` (Base commit: `bf23f382f882a26255bce710b569ec2095ae6c3f`)
+**Current Commit:** `d81551ba547f20cfaf40417803b1184bc1993eb3` (Starting commit for Step 5.1)
 
 ---
 
@@ -674,11 +674,11 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ 5. Direct Network Queries: Dedicated Target & Filter Workflows (IMPLEMENTED — REVIEW PENDING) │
+│ 5. Direct Network Queries: Dedicated Target & Filter Workflows (COMPLETE)   │
 │ • Natural-language query interpretation layer (5 intents) in networkQueryService.ts │
 │ • Non-inference safeguards, alias dictionaries & score breakdown reconciliation │
-│ • Network Copilot UI in NetworkView.tsx with path visualizer & example queries │
-│ • Automated unit test suite in scripts/test_network_query.mjs (120 passing)  │
+│ • Step 5.1 Refinements: strict org-history matching & facilitator semantics │
+│ • Automated unit test suite in scripts/test_network_query.mjs (172 passing)  │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
@@ -856,6 +856,27 @@ To ensure disciplined execution without regressions, the implementation follows 
   - All 120 tests pass with zero failures.
 
 
+### 12.6 Phase 1 Step 5.1 Organisation Matching & Introduction Recommendation Semantics Specification (Review Pending)
+- **Strict Organisation-History Matching (`src/services/networkQueryService.ts`)**:
+  - Implements a strict matching precedence in `getContactsForOrganisationHistory`:
+    1. Canonical ticker equality for listed entities (`emp.organisation.type === 'LISTED_NSE_BSE' && emp.organisation.ticker === targetTicker`).
+    2. Exact `orgId` equality for unlisted entities (`emp.organisation.type !== 'LISTED_NSE_BSE' && emp.organisation.orgId === targetOrgId`).
+    3. Normalized exact organisation-name equality only when neither canonical identifier is available.
+  - Substring-based name matching (`.includes()`) is strictly removed, preventing false positive matches on generic substrings (e.g., `India`, `Bank`, `Tata`, `Ventures`, `Securities`, `Advisory`, `Consultancy`, `Company`).
+  - Preserves current role (relevance 100) vs. past role (relevance 80) differentiation, deterministic sorting, and mathematical score breakdown.
+- **Separation of Introduction Facilitators from Professional Relevance**:
+  - Intermediaries along 2-hop referral paths are typed as `IntroductionFacilitator` in `src/types/network.ts`.
+  - Kept strictly distinct from domain/professional recommendations (`targetRecommendation` and `recommendations` contain the target persona, while intermediaries reside in `introductionFacilitators`).
+  - Labeled explicitly as **Introduction Facilitators**, not company or sector experts.
+  - Reasons are restricted to `RELATIONSHIP_PATH`, identifying the full referral path (`INVESTOR_ROOT -> Intermediary -> Target`).
+  - Graph proximity is explicitly explained as relationship reachability rather than domain expertise.
+  - Facilitator IDs are deduplicated (`Set<string>`), and ranking score reflects path accessibility.
+- **Network Copilot User Interface Integration (`src/components/NetworkView.tsx`)**:
+  - For `PERSON_CONNECTION` queries, the Target Contact is highlighted under a dedicated **Target Contact (Requested Persona)** section with exact match relevance.
+  - When 2-hop intermediaries exist, they are displayed in a dedicated **Introduction Facilitators (Referral Intermediaries)** section with warm-referral badges, facilitated path summaries, and explicit disclaimers that graph reachability does not imply industry domain expertise.
+- **Automated Unit Test Suite (`scripts/test_network_query.mjs`)**:
+  - 172 automated unit tests passing (0 failures), including negative tests for partial organisation names and full facilitator semantics verification.
+
 ---
 
 ## 13. Explicit Assumptions and Unresolved Design Decisions
@@ -887,4 +908,5 @@ To ensure disciplined execution without regressions, the implementation follows 
 - [x] Decouples relationship accessibility (strength & hops) from professional domain relevance.
 - [x] Enforces strict `SYNTHETIC` provenance tags for prototype safety.
 - [x] Requires zero external graph database dependencies; perfectly compatible with Vite + React SPA.
-- [x] Implementation scoped strictly to domain types, dataset, validator, and pure graph service: zero UI alterations or modifications to existing portfolio, research, or announcement runtime behavior.
+- [x] Network Interface fully integrated with standalone Network UI, URL synchronization (`?page=network`), and Network Copilot natural query workflow.
+- [x] Preserves zero modifications to existing portfolio, research, or announcement runtime behavior.

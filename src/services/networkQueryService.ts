@@ -23,8 +23,10 @@ import {
 import {
   Person,
   NetworkGraph,
+  EmploymentRecord,
   ContactRecommendation,
   RecommendationReason,
+  IntroductionFacilitator,
   InterpretedNetworkQuery,
   QueryExecutionResult,
 } from '../types/network';
@@ -731,6 +733,11 @@ export function interpretNetworkQuery(
 
 /**
  * Retrieves contacts who currently or previously worked at a specified organisation.
+ * Uses strict hierarchy:
+ * 1. Prefer canonical ticker equality for listed organisations (e.g. 'TCS', 'RELIANCE').
+ * 2. Prefer exact orgId equality for unlisted organisations (e.g. 'org-mckinsey-india', 'org-bain-india').
+ * 3. Use normalized exact organisation-name equality only when a canonical identifier is unavailable.
+ * 4. Substring-based name matching is strictly removed to prevent false positive matches.
  */
 export function getContactsForOrganisationHistory(
   orgIdentifier: string,
@@ -738,6 +745,26 @@ export function getContactsForOrganisationHistory(
 ): ContactRecommendation[] {
   const norm = cleanQueryTerm(orgIdentifier).toLowerCase();
   if (!norm) return [];
+
+  // 1. Determine canonical ticker for listed entities
+  const upper = norm.toUpperCase();
+  const directTicker = upper in LOCAL_VERIFIED_SYMBOL_REGISTRY ? upper : undefined;
+  const resolvedComp = directTicker ? undefined : resolveCompany(orgIdentifier);
+  const targetTicker = directTicker || resolvedComp?.ticker;
+
+  // 2. Determine exact orgId for unlisted entities
+  let targetOrgId: string | undefined;
+  if (norm.startsWith('org-')) {
+    targetOrgId = norm;
+  } else {
+    const resolvedOrg = resolveOrganisation(orgIdentifier);
+    if (resolvedOrg?.orgId) {
+      targetOrgId = resolvedOrg.orgId;
+    }
+  }
+
+  // 3. Fallback normalized exact organisation name
+  const targetExactName = norm;
 
   interface OrgMatch {
     person: Person;
@@ -751,32 +778,54 @@ export function getContactsForOrganisationHistory(
   const matches: OrgMatch[] = [];
 
   for (const person of graph.people.values()) {
+    const personMatches: { emp: EmploymentRecord; isCurrent: boolean }[] = [];
+
     for (const emp of person.employmentHistory) {
-      const tickerMatch =
-        emp.organisation.type === 'LISTED_NSE_BSE' &&
-        emp.organisation.ticker.toLowerCase() === norm;
+      let isMatch = false;
 
-      const orgIdMatch =
-        emp.organisation.type !== 'LISTED_NSE_BSE' &&
-        'orgId' in emp.organisation &&
-        emp.organisation.orgId.toLowerCase() === norm;
-
-      const nameMatch =
-        emp.organisation.name.toLowerCase() === norm ||
-        emp.organisation.name.toLowerCase().includes(norm) ||
-        norm.includes(emp.organisation.name.toLowerCase());
-
-      if (tickerMatch || orgIdMatch || nameMatch) {
-        matches.push({
-          person,
-          isCurrent: emp.isCurrent,
-          roleTitle: emp.roleTitle,
-          orgName: emp.organisation.name,
-          startDate: emp.startDate,
-          endDate: emp.endDate,
-        });
-        break; // at most one match record per person
+      // 1. Prefer canonical ticker equality for listed organisations
+      if (targetTicker) {
+        if (
+          emp.organisation.type === 'LISTED_NSE_BSE' &&
+          emp.organisation.ticker.toUpperCase() === targetTicker.toUpperCase()
+        ) {
+          isMatch = true;
+        }
       }
+      // 2. Prefer exact orgId equality for unlisted organisations
+      else if (targetOrgId) {
+        if (
+          emp.organisation.type !== 'LISTED_NSE_BSE' &&
+          'orgId' in emp.organisation &&
+          emp.organisation.orgId.toLowerCase() === targetOrgId.toLowerCase()
+        ) {
+          isMatch = true;
+        }
+      }
+      // 3. Normalized exact organisation-name equality only when a canonical identifier is unavailable
+      else {
+        const empNameNorm = cleanQueryTerm(emp.organisation.name).toLowerCase();
+        if (empNameNorm === targetExactName) {
+          isMatch = true;
+        }
+      }
+
+      if (isMatch) {
+        personMatches.push({ emp, isCurrent: emp.isCurrent });
+      }
+    }
+
+    if (personMatches.length > 0) {
+      // Prioritize current role if multiple matching roles exist for this persona
+      const bestMatch = personMatches.find((m) => m.isCurrent) || personMatches[0];
+      matches.push({
+        person,
+        isCurrent: bestMatch.emp.isCurrent,
+        roleTitle: bestMatch.emp.roleTitle,
+        orgName: bestMatch.emp.organisation.name,
+        startDate: bestMatch.emp.startDate,
+        endDate: bestMatch.emp.endDate,
+      });
     }
   }
 
@@ -919,6 +968,7 @@ export function executeNetworkQuery(
         return {
           query: interpretedQuery,
           recommendations: [],
+          introductionFacilitators: [],
           personConnectionPaths: [],
           status: 'UNKNOWN_ENTITY',
           statusMessage: interpretedQuery.explanation,
@@ -933,6 +983,7 @@ export function executeNetworkQuery(
         return {
           query: interpretedQuery,
           recommendations: [],
+          introductionFacilitators: [],
           personConnectionPaths: [],
           status: 'NO_MATCHES',
           statusMessage: `No valid relationship paths could be found to ${target.name} within 2 degrees.`,
@@ -956,7 +1007,7 @@ export function executeNetworkQuery(
         reasons: [
           {
             category: 'RELATIONSHIP_PATH',
-            description: `Target persona requested in query (${bestPath.degree === 1 ? 'Direct Connection' : `Reachable via ${bestPath.intermediary?.name}`})`,
+            description: `Target persona requested in query (${bestPath.degree === 1 ? 'Direct 1st-Degree Connection' : `Reachable via ${bestPath.intermediary?.name}`})`,
             scoreContribution: 100,
             supportingEvidence: `Exact persona match: ${target.name}`,
           },
@@ -964,48 +1015,56 @@ export function executeNetworkQuery(
         provenanceDisclaimer: provenanceNotice,
       };
 
-      // Also gather intermediary contacts as warm referral facilitators
-      const intermediaryRecs: ContactRecommendation[] = [];
-      const seenIntermediaries = new Set<string>();
+      // Gather distinct 2nd-degree intermediary contacts as Introduction Facilitators
+      // (Kept strictly separated from professional domain recommendations)
+      const facilitators: IntroductionFacilitator[] = [];
+      const seenIntermediaryIds = new Set<string>();
 
       for (const p of paths) {
-        if (p.intermediary && !seenIntermediaries.has(p.intermediary.id)) {
-          seenIntermediaries.add(p.intermediary.id);
-          const iPaths = findIntroductionPaths(p.intermediary.id, graph);
-          if (iPaths.length > 0) {
-            const iBest = iPaths[0];
-            const iScoreBreakdown = calculateScoreBreakdown(70, iBest.accessibilityScore);
-            intermediaryRecs.push({
-              person: p.intermediary,
-              path: iBest,
-              allPaths: iPaths,
-              degree: 1,
-              accessibilityScore: iBest.accessibilityScore,
-              relevanceScore: 70,
-              overallScore: iScoreBreakdown.overallScore,
-              scoreBreakdown: iScoreBreakdown,
-              reasons: [
-                {
-                  category: 'RELATIONSHIP_PATH',
-                  description: `Introduction facilitator: mutual peer connected to ${target.name}`,
-                  scoreContribution: 70,
-                  supportingEvidence: `Intermediary in 2-hop path to ${target.name}`,
-                },
-              ],
-              provenanceDisclaimer: provenanceNotice,
-            });
-          }
+        if (p.degree === 2 && p.intermediary && !seenIntermediaryIds.has(p.intermediary.id)) {
+          seenIntermediaryIds.add(p.intermediary.id);
+
+          const intermediary = p.intermediary;
+          const directInvestorEdge = p.edges[0];
+          const peerReferralEdge = p.edges[1];
+          const pathSummary = `INVESTOR_ROOT -> ${intermediary.name} -> ${target.name}`;
+
+          facilitators.push({
+            person: intermediary,
+            targetPerson: target,
+            path: p,
+            facilitatedPathSummary: pathSummary,
+            accessibilityScore: p.accessibilityScore,
+            rankingScore: p.accessibilityScore,
+            roleBadge: 'Introduction Facilitator',
+            explanation: `${intermediary.name} can facilitate an introduction to ${target.name} via an active 2-hop referral path. Graph proximity represents relationship accessibility, not domain expertise in ${target.name}'s industry.`,
+            reasons: [
+              {
+                category: 'RELATIONSHIP_PATH',
+                description: `Introduction Facilitator for ${target.name}`,
+                scoreContribution: p.accessibilityScore,
+                supportingEvidence: `Facilitates referral path: ${pathSummary} (Direct tie: ${directInvestorEdge.connectionStrength}/5 stars, Peer tie: ${peerReferralEdge.connectionStrength}/5 stars)`,
+              },
+            ],
+            provenanceDisclaimer: provenanceNotice,
+          });
         }
       }
 
-      const allRecs = [targetRec, ...intermediaryRecs];
+      // Sort facilitators deterministically by accessibilityScore desc, then name asc
+      facilitators.sort((a, b) => {
+        if (b.accessibilityScore !== a.accessibilityScore) return b.accessibilityScore - a.accessibilityScore;
+        return a.person.name.localeCompare(b.person.name);
+      });
 
       return {
         query: interpretedQuery,
-        recommendations: allRecs,
+        targetRecommendation: targetRec,
+        recommendations: [targetRec],
+        introductionFacilitators: facilitators,
         personConnectionPaths: paths,
         status: 'SUCCESS',
-        statusMessage: `Found ${paths.length} introduction path${paths.length > 1 ? 's' : ''} to ${target.name} (${bestPath.degree === 1 ? '1st-degree direct' : '2nd-degree referral'}).`,
+        statusMessage: `Found ${paths.length} introduction path${paths.length > 1 ? 's' : ''} to ${target.name} (${bestPath.degree === 1 ? '1st-degree direct' : '2nd-degree referral'})${facilitators.length > 0 ? ` with ${facilitators.length} introduction facilitator${facilitators.length > 1 ? 's' : ''}` : ''}.`,
         provenanceNotice,
       };
     }
@@ -1015,6 +1074,7 @@ export function executeNetworkQuery(
       return {
         query: interpretedQuery,
         recommendations: [],
+        introductionFacilitators: [],
         status: interpretedQuery.confidence === 'UNRESOLVED' ? 'UNKNOWN_ENTITY' : 'AMBIGUOUS',
         statusMessage: interpretedQuery.explanation,
         provenanceNotice,

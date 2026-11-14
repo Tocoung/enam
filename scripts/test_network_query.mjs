@@ -262,6 +262,79 @@ const orgHistBain = getContactsForOrganisationHistory('bain', graph);
 assert(orgHistBain.length === 1, 'getContactsForOrganisationHistory finds Bain');
 assert(orgHistBain[0].person.name === 'Karan Mehta', 'Karan Mehta worked at Bain');
 
+const orgHistTcs = getContactsForOrganisationHistory('TCS', graph);
+assert(orgHistTcs.length === 1, 'getContactsForOrganisationHistory finds TCS');
+assert(orgHistTcs[0].person.name === 'Vikram Sen', 'Vikram Sen worked at TCS');
+assert(orgHistTcs[0].relevanceScore === 100, 'TCS current role scores 100 relevance');
+
+const orgHistMck = getContactsForOrganisationHistory('org-mckinsey-india', graph);
+assert(orgHistMck.length === 1, 'getContactsForOrganisationHistory finds McKinsey by orgId');
+assert(orgHistMck[0].person.name === 'Amit Tandon', 'Amit Tandon worked at McKinsey');
+
+const orgHistSebi = getContactsForOrganisationHistory('sebi', graph);
+assert(orgHistSebi.length === 1, 'getContactsForOrganisationHistory finds SEBI');
+assert(orgHistSebi[0].person.name === 'Kavita Iyer', 'Kavita Iyer worked at SEBI');
+assert(orgHistSebi[0].relevanceScore === 80, 'SEBI past role scores 80 relevance');
+
+// Negative tests for strict organisation-history matching (no substring false positives)
+const negativeOrgTests = ['India', 'Bank', 'Tata', 'Ventures', 'Securities', 'Advisory', 'Consultancy', 'Company'];
+for (const badTerm of negativeOrgTests) {
+  const badMatches = getContactsForOrganisationHistory(badTerm, graph);
+  assert(badMatches.length === 0, `No false positive matches for partial organisation name "${badTerm}"`);
+}
+
+// Separate Introduction Facilitator Semantics in PERSON_CONNECTION
+console.log('\n7b. Introduction Facilitators Semantics (PERSON_CONNECTION):');
+
+// 1. Direct target person with NO second-degree facilitator (Arun Sharma)
+const execDirectTarget = queryNetworkNaturalLanguage('Who can connect me to Arun Sharma?', graph);
+assert(execDirectTarget.status === 'SUCCESS', 'Arun Sharma connection query succeeds');
+assert(execDirectTarget.recommendations.length === 1, 'Target persona is solely in recommendations');
+assert(execDirectTarget.recommendations[0].person.name === 'Arun Sharma', 'Target persona is Arun Sharma');
+assert(execDirectTarget.targetRecommendation?.person.name === 'Arun Sharma', 'targetRecommendation holds Arun Sharma');
+assert(execDirectTarget.introductionFacilitators?.length === 0, 'No facilitators when only direct 1st-degree tie exists');
+
+// 2. Target person with ONE intermediary (Rohit Gupta via Ananya Deshmukh)
+const execOneFacilitator = queryNetworkNaturalLanguage('Who can connect me to Rohit Gupta?', graph);
+assert(execOneFacilitator.status === 'SUCCESS', 'Rohit Gupta connection query succeeds');
+assert(execOneFacilitator.recommendations.length === 1, 'Target persona is solely in recommendations (Rohit Gupta)');
+assert(execOneFacilitator.recommendations[0].person.name === 'Rohit Gupta', 'Target recommendation is Rohit Gupta');
+assert(execOneFacilitator.introductionFacilitators?.length === 1, 'Exactly 1 intermediary facilitator for Rohit Gupta');
+assert(execOneFacilitator.introductionFacilitators[0].person.name === 'Ananya Deshmukh', 'Facilitator is Ananya Deshmukh');
+assert(execOneFacilitator.introductionFacilitators[0].targetPerson.name === 'Rohit Gupta', 'Facilitator targets Rohit Gupta');
+assert(execOneFacilitator.introductionFacilitators[0].roleBadge === 'Introduction Facilitator', 'Role badge is Introduction Facilitator');
+
+// 3. Target person with MULTIPLE distinct intermediaries (Vikram Sen via Amit Tandon & Radhika Iyer)
+const execMultiFacilitator = queryNetworkNaturalLanguage('Who can connect me to Vikram Sen?', graph);
+assert(execMultiFacilitator.status === 'SUCCESS', 'Vikram Sen connection query succeeds');
+assert(execMultiFacilitator.recommendations.length === 1, 'Target persona is solely in recommendations (Vikram Sen)');
+assert(execMultiFacilitator.recommendations[0].person.name === 'Vikram Sen', 'Target recommendation is Vikram Sen');
+assert(execMultiFacilitator.introductionFacilitators?.length === 2, 'Exactly 2 distinct intermediary facilitators for Vikram Sen');
+const facNames = execMultiFacilitator.introductionFacilitators.map(f => f.person.name);
+assert(facNames.includes('Amit Tandon') && facNames.includes('Radhika Iyer'), 'Facilitators are Amit Tandon and Radhika Iyer');
+
+// 4. No duplicate facilitator IDs
+const facIds = execMultiFacilitator.introductionFacilitators.map(f => f.person.id);
+assert(new Set(facIds).size === facIds.length, 'No duplicate facilitator IDs');
+
+// 5. Facilitator reason identifies the actual path
+const fac0 = execMultiFacilitator.introductionFacilitators[0];
+assert(fac0.facilitatedPathSummary.includes('INVESTOR_ROOT ->') && fac0.facilitatedPathSummary.includes('Vikram Sen'), 'facilitatedPathSummary identifies full referral path');
+assert(fac0.reasons[0].supportingEvidence.includes('Facilitates referral path:'), 'Supporting evidence identifies referral path');
+
+// 6. Facilitator is NOT represented as a professional expert merely because of graph edge
+for (const fac of execMultiFacilitator.introductionFacilitators) {
+  assert(fac.reasons.every(r => r.category === 'RELATIONSHIP_PATH'), `Facilitator ${fac.person.name} has strictly RELATIONSHIP_PATH reasons`);
+  assert(!fac.reasons.some(r => r.category === 'CURRENT_ROLE' || r.category === 'PAST_ROLE' || r.category === 'EXPERTISE'), `Facilitator ${fac.person.name} is not represented as domain/professional expert`);
+  assert(fac.rankingScore === fac.accessibilityScore, `Ranking score is path-accessibility heuristic (${fac.accessibilityScore})`);
+  assert(fac.explanation.includes('not domain expertise'), `Explanation explicitly disclaims domain expertise for ${fac.person.name}`);
+}
+
+// 7. Target and facilitator results remain distinguishable
+const recIds = execMultiFacilitator.recommendations.map(r => r.person.id);
+const hasIntersection = facIds.some(id => recIds.includes(id));
+assert(!hasIntersection, 'Target persona and facilitators have zero ID intersection and remain completely distinguishable');
+
 // 8. Non-Inference & Adversarial Unknown Persona Checks
 console.log('\n8. Non-Inference & Adversarial Unknown Persona Checks:');
 
