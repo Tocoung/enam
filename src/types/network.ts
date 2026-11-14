@@ -211,3 +211,89 @@ export interface NetworkValidationResult {
   readonly personToPersonEdges: number;
   readonly failures: readonly string[];
 }
+
+export const SYNTHETIC_DATASET_DISCLAIMER =
+  'SYNTHETIC_DATASET_DISCLAIMER: All personas, paths, and affiliations in this prototype are synthetic investor-network models.';
+
+/**
+ * In-memory indexed representation of the network graph for efficient traversal.
+ * Edge directionality is strictly respected in the adjacency index:
+ * - Direct investor edges are directed outward from 'INVESTOR_ROOT'.
+ * - Person-to-person edges are undirected and stored symmetrically for both incident nodes.
+ */
+export interface NetworkGraph {
+  readonly rootInvestorId: 'INVESTOR_ROOT';
+  readonly people: ReadonlyMap<string, Person>;
+  readonly adjacency: ReadonlyMap<string, readonly NetworkEdge[]>;
+  readonly totalNodes: number;
+  readonly totalEdges: number;
+}
+
+/**
+ * Ordered traversal path from INVESTOR_ROOT to a target person.
+ * Prototype caps traversal depth at 2 hops (degree 1 or degree 2).
+ */
+export interface IntroductionPath {
+  readonly degree: 1 | 2;
+  readonly nodeIds: readonly string[];
+  readonly edges: readonly NetworkEdge[];
+  readonly intermediary?: Person;
+  readonly hopCount: number;
+  readonly pathStrength: ConnectionStrength;
+  readonly accessibilityScore: number; // 0-100 bounded
+  readonly explanation: string;
+}
+
+export type RecommendationReasonCategory =
+  | 'CURRENT_ROLE'
+  | 'PAST_ROLE'
+  | 'PEER_ROLE'
+  | 'EXPERTISE_EXACT'
+  | 'EXPERTISE_PARTIAL'
+  | 'RELATIONSHIP_PATH';
+
+export interface RecommendationReason {
+  readonly category: RecommendationReasonCategory;
+  readonly description: string;
+  readonly scoreContribution: number;
+  readonly supportingEvidence: string;
+}
+
+export interface ContactRecommendation {
+  readonly person: Person;
+  readonly path: IntroductionPath;
+  readonly allPaths: readonly IntroductionPath[];
+  readonly degree: 1 | 2;
+  readonly accessibilityScore: number; // 0-100 bounded
+  readonly relevanceScore: number;     // 0-100 bounded
+  readonly overallScore: number;       // 0-100 bounded
+  readonly reasons: readonly RecommendationReason[];
+  readonly provenanceDisclaimer: string;
+}
+
+export interface CompanyNetworkQuery {
+  readonly type: 'COMPANY';
+  readonly ticker: string;
+}
+
+export interface SectorNetworkQuery {
+  readonly type: 'SECTOR';
+  readonly sector: string;
+}
+
+export interface ExpertiseNetworkQuery {
+  readonly type: 'EXPERTISE';
+  readonly query: string;
+}
+
+export interface GeneralSearchNetworkQuery {
+  readonly type: 'GENERAL';
+  readonly query: string;
+}
+
+export type NetworkQuery =
+  | CompanyNetworkQuery
+  | SectorNetworkQuery
+  | ExpertiseNetworkQuery
+  | GeneralSearchNetworkQuery;
+

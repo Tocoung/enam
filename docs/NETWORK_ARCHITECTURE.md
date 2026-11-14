@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 2.1 Complete — Domain Model & Validator Hardened  
+**Status:** Phase 1, Step 3 Complete — Graph Traversal & Explainable Relevance Scoring Implemented  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `fafb2f34a2c0f5e7ae078a2c62f13def76328c56`
+**Current Commit:** `ef0bda40edc422ce48cf3bb412749b9cce308143`
 
 ---
 
@@ -341,34 +341,41 @@ Strength │ 4 (2nd-Degree Mutual Peer Tie, UNDIRECTED)
 > Co-tenure at a massive enterprise (such as TCS with 600,000+ employees or Reliance with 300,000+ employees) does not constitute a personal relationship. Edges exist **only** when explicitly recorded in `networkData.ts` with dedicated narrative evidence.
 
 ### 5.3 Client-Side Graph Traversal Architecture
-The graph is maintained in memory using an **Adjacency List Index**:
+The graph is maintained in memory using an **Adjacency List Index** (`buildNetworkGraph` in `src/services/networkService.ts`):
 ```typescript
 export interface NetworkGraph {
-  nodes: Map<string, Person>;
-  // Key: Node ID, Value: Array of outbound edges
-  adjacency: Map<string, NetworkEdge[]>;
-  // Reverse index: Key: Target Node ID, Value: Array of inbound edges
-  reverseAdjacency: Map<string, NetworkEdge[]>;
+  readonly rootInvestorId: 'INVESTOR_ROOT';
+  readonly people: ReadonlyMap<string, Person>;
+  readonly adjacency: ReadonlyMap<string, readonly NetworkEdge[]>;
+  readonly totalNodes: number;
+  readonly totalEdges: number;
 }
 ```
 
-#### Traversal Capabilities:
-1. **Direct Contacts (Degree 1)**: All edges where `sourceNodeId === 'INVESTOR_ROOT'`.
+#### Traversal Rules & Invariants:
+1. **Direct Contacts (Degree 1)**: Traversed via direct outward edges where `sourceNodeId === 'INVESTOR_ROOT'`. Investor edges are strictly directed and cannot be traversed backwards.
 2. **Second-Degree Contacts (Degree 2)**: Reached via a two-hop path:
-   $$\text{INVESTOR\_ROOT} \xrightarrow{\text{Edge}_1} \text{Person}_A \xrightarrow{\text{Edge}_2} \text{Person}_B$$
-3. **Shortest & Strongest Path Finding**:
-   - Implemented via Breadth-First Search (BFS) for minimal hops and Dijkstra's algorithm for path scoring.
-   - For any target contact, FINN computes the **introduction path**:
-     ```typescript
-     export interface IntroductionPath {
-       degree: 1 | 2;
-       intermediary?: Person;
-       investorToIntermediaryStrength?: number;
-       intermediaryToTargetStrength?: number;
-       compositeTrustScore: number;
-       pathExplanation: string;
-     }
-     ```
+   $$\text{INVESTOR\_ROOT} \xrightarrow{\text{Edge}_1\text{ (Directed)}} \text{Person}_A \xrightarrow{\text{Edge}_2\text{ (Undirected)}} \text{Person}_B$$
+3. **Traversal Depth Capped at 2 Hops**: The pathfinder explores direct and 2nd-degree paths exclusively. 3rd-degree exploration is excluded to prevent exponential search expansion and low-trust noise.
+4. **No Repeated Nodes**: Paths must contain strictly distinct nodes; self-referential or cyclic introductions are rejected.
+5. **Deterministic Ordering**: When multiple paths exist to a target contact, paths are sorted deterministically:
+   - Hop count ascending (degree 1 before degree 2).
+   - Accessibility score descending.
+   - Intermediary persona ID ascending (lexicographical tie-break).
+   - Edge IDs ascending.
+6. **Introduction Path Model**:
+```typescript
+export interface IntroductionPath {
+  readonly degree: 1 | 2;
+  readonly nodeIds: readonly string[];
+  readonly edges: readonly NetworkEdge[];
+  readonly intermediary?: Person;
+  readonly hopCount: number;
+  readonly pathStrength: ConnectionStrength;
+  readonly accessibilityScore: number; // 0-100 bounded
+  readonly explanation: string;
+}
+```
 
 ---
 
@@ -397,83 +404,121 @@ FINN will answer four primary investor questions:
 ### 7.1 Separation of Relevance vs. Accessibility
 A critical flaw in naive networking tools is conflating **how well a person knows a topic** with **how easily the investor can reach them**. FINN explicitly decouples these two dimensions:
 
-$$\text{Final Rank Score} = \text{Domain Relevance Score} \times \text{Relationship Accessibility Factor}$$
+$$\text{Overall Score} = \text{round}\left(0.65 \times \text{Relevance Score} + 0.35 \times \text{Accessibility Score}\right)$$
+
+> [!IMPORTANT]
+> **Strict Professional Relevance Invariant**: If a candidate has zero professional relevance ($\text{relevanceScore} = 0$), they are **strictly excluded** from recommendation results ($\text{overallScore} = 0$). A close personal friend or high-accessibility contact is never recommended for a company or sector inquiry unless they possess substantive domain relevance.
 
 ```
                 ▲ Domain Relevance Score (0 - 100)
                 │
                 │     [ High Relevance, Low Access ]      [ High Relevance, High Access ]
-                │     Ex-CEO (2nd-degree, weak edge)      Former VP (1st-degree, Strength 5)
-                │     • "Needs warm intro"                • "Call directly today"
+                │     Ex-Executive (2nd-degree intro)     Current VP (1st-degree, Strength 5)
+                │     • "Warm referral via peer"          • "Direct top recommendation"
                 │
-                │     [ Low Relevance, Low Access ]       [ Low Relevance, High Access ]
-                │     Distant peer in unrelated field     Close friend in healthcare
-                │     • "Not recommended"                 • "Valued friend, wrong sector"
+                │     [ Zero Relevance: EXCLUDED ]        [ Zero Relevance: EXCLUDED ]
+                │     Distant contact in other sector     Close friend in unrelated field
+                │     • Excluded from results             • Excluded from results (No spam)
                 └────────────────────────────────────────────────────────────────────────►
-                                                      Relationship Accessibility Factor (0.0 - 1.0)
+                                                      Relationship Accessibility Score (0 - 100)
 ```
 
 ### 7.2 Domain Relevance Scoring Engine ($\text{Score} \in [0, 100]$)
-For a query targeting company $C$ (e.g. `ticker === 'RELIANCE'`):
 
-1. **Direct Employment Match ($\le 55\text{ pts}$)**:
-   - **Current Employee**: $+55\text{ pts}$ if currently employed at target company.
-   - **Former Employee (Recency Scaled)**:
-     - Ended within past 2 years: $+45\text{ pts}$
-     - Ended 2–5 years ago: $+35\text{ pts}$
-     - Ended $>5$ years ago: $+20\text{ pts}$
-   - **Seniority Bonus**:
-     - C-Level Executive: $+10\text{ pts}$
-     - Senior VP / Head of Business: $+7\text{ pts}$
-     - Director / GM: $+5\text{ pts}$
+The scoring engine evaluates candidate relevance across four query modalities:
 
-2. **Competitor & Peer Affiliation ($\le 30\text{ pts}$)**:
-   - If candidate worked at an acknowledged industry competitor (e.g. for `SWIGGY`, competitor is `ZOMATO`; for `TCS`, competitor is `INFY` or `WIPRO`):
-     - Current competitor employee: $+30\text{ pts}$
-     - Former competitor employee: $+20\text{ pts}$
+#### 1. Company Queries (`getContactsForCompany(ticker, graph)`):
+- **Current Employment**: $+60\text{ pts}$ (`CURRENT_ROLE`) if currently employed at target company.
+- **Previous Employment**: $+35\text{ pts}$ (`PAST_ROLE`) for previous tenure at target company.
+- **Sector Peer Affiliation**: $+20\text{ pts}$ (current peer role) or $+10\text{ pts}$ (past peer role) (`PEER_ROLE`) in the same sector (e.g. Swiggy vs Zomato in Consumer Services, TCS vs Infosys in IT).
+- **Domain Expertise Alignment**: $+15\text{ pts}$ (exact match) or $+10\text{ pts}$ (partial match) multiplied by proficiency factor (`EXPERTISE_EXACT` / `EXPERTISE_PARTIAL`).
+- **Profile Headline / Overview Match**: $+10\text{ pts}$ (`EXPERTISE_PARTIAL`).
 
-3. **Domain Expertise & Keyword Match ($\le 25\text{ pts}$)**:
-   - Exact match with company's core operating sector (e.g. 'Petrochemicals' or 'Cloud Modernization'): $+15\text{ pts}$
-   - Supporting operational capability: $+10\text{ pts}$
+#### 2. Sector Queries (`getContactsForSector(sector, graph)`):
+- **Current Role in Sector**: $+50\text{ pts}$ (`CURRENT_ROLE`).
+- **Past Role in Sector**: $+25\text{ pts}$ (`PAST_ROLE`).
+- **Exact Sector Expertise Tag**: $+25\text{ pts} \times \text{proficiencyMultiplier}$ (`EXPERTISE_EXACT`).
+- **Operational / Subsector Tag**: $+15\text{ pts} \times \text{proficiencyMultiplier}$ (`EXPERTISE_PARTIAL`).
 
-### 7.3 Relationship Accessibility Factor ($\text{Factor} \in [0.1, 1.0]$)
-Measures the friction of initiating a conversation:
-- **1st-Degree (Direct Connection)**:
-  $$\text{Accessibility} = 0.5 + \left(0.1 \times \text{Strength}\right)$$
-  - Strength 5: $1.00$
-  - Strength 4: $0.90$
-  - Strength 3: $0.80$
-  - Strength 2: $0.70$
-  - Strength 1: $0.60$
-- **2nd-Degree (Via Intermediary)**:
-  $$\text{Accessibility} = 0.25 \times \left(\frac{\text{Strength}_{1}}{5}\right) \times \left(\frac{\text{Strength}_{2}}{5}\right)$$
-  - Example: Investor $\xrightarrow{\text{Str 5}}$ Person A $\xrightarrow{\text{Str 4}}$ Target:
-    $$\text{Accessibility} = 0.25 \times 1.0 \times 0.8 = 0.20 \quad (\text{adjusted to } 0.35\text{ base})$$
+#### 3. Expertise Queries (`getContactsForExpertise(query, graph)`):
+- **Exact Tag Name Match**: $+60\text{ pts} \times \text{proficiencyMultiplier}$ (`EXPERTISE_EXACT`).
+- **Partial Keyword Match**: $+35\text{ pts} \times \text{proficiencyMultiplier}$ (`EXPERTISE_PARTIAL`).
+- **Headline / Responsibilities Highlight**: $+15\text{ pts}$ (`CURRENT_ROLE`).
 
-### 7.4 Explainability Output Structure
-FINN never presents an unexplained score. Recommendations will return a structured justification object:
+#### 4. General Search (`searchNetwork(query, graph)`):
+- **Name Match**: $+80\text{ pts}$ (exact) or $+50\text{ pts}$ (partial) (`RELATIONSHIP_PATH`).
+- **Current Organisation / Role Title**: $+40\text{ pts}$ (`CURRENT_ROLE`).
+- **Past Organisation**: $+20\text{ pts}$ (`PAST_ROLE`).
+- **Company Ticker Automatic Dispatch**: When the search query matches a verified ticker, company relevance is incorporated automatically.
+
+#### Expertise Proficiency Multipliers (`PROFICIENCY_MULTIPLIERS`):
+- `DEEP_OPERATIONAL_EXPERT`: $1.0\times$ (100% of base points)
+- `EXECUTIVE_OVERSIGHT`: $0.85\times$ (85% of base points)
+- `PRACTITIONER`: $0.70\times$ (70% of base points)
+
+All relevance scores are bounded between $0$ and $100$.
+
+### 7.3 Relationship Accessibility Score ($\text{Score} \in [0, 100]$)
+
+Measures introduction accessibility and social friction from `INVESTOR_ROOT`:
+
+$$\text{accessibilityScore} = \max\left(0, \min\left(100, \text{pathStrength} \times 20 - (\text{hopCount} - 1) \times 15\right)\right)$$
+
+- **Direct Contacts ($\text{hopCount} = 1$)**:
+  - Connection Strength 5: $5 \times 20 - 0 = 100$
+  - Connection Strength 4: $4 \times 20 - 0 = 80$
+  - Connection Strength 3: $3 \times 20 - 0 = 60$
+  - Connection Strength 2: $2 \times 20 - 0 = 40$
+  - Connection Strength 1: $1 \times 20 - 0 = 20$
+- **Second-Degree Contacts ($\text{hopCount} = 2$)**:
+  - Governed by the weakest link on the path ($\text{pathStrength} = \min(\text{Str}_1, \text{Str}_2)$) minus a $15$-point hop penalty:
+  - Strengths (5, 5) $\implies \text{pathStrength} = 5$: $5 \times 20 - 15 = 85$
+  - Strengths (5, 4) $\implies \text{pathStrength} = 4$: $4 \times 20 - 15 = 65$
+  - Strengths (4, 4) $\implies \text{pathStrength} = 4$: $4 \times 20 - 15 = 65$
+  - Strengths (3, 4) $\implies \text{pathStrength} = 3$: $3 \times 20 - 15 = 45$
+  - Strengths (2, 4) $\implies \text{pathStrength} = 2$: $2 \times 20 - 15 = 25$
+
+### 7.4 Explainability Output Structure & Recommendation Models
+
+FINN never presents an unexplained score or black-box recommendation. Recommendations return typed justification structures:
+
 ```typescript
+export interface RecommendationReason {
+  readonly category: RecommendationReasonCategory;
+  readonly description: string;
+  readonly scoreContribution: number;
+  readonly supportingEvidence: string;
+}
+
 export interface ContactRecommendation {
-  person: Person;
-  rankScore: number;
-  relevanceBreakdown: {
-    baseCompanyMatch: number;
-    seniorityBonus: number;
-    competitorMatch: number;
-    expertiseMatch: number;
-    matchedAffiliations: string[];
-    matchedExpertise: string[];
-  };
-  accessibilityBreakdown: {
-    degree: 1 | 2;
-    introductionPath?: IntroductionPath;
-    accessibilityMultiplier: number;
-  };
-  narrativeRationale: string;
+  readonly person: Person;
+  readonly path: IntroductionPath;
+  readonly allPaths: readonly IntroductionPath[];
+  readonly degree: 1 | 2;
+  readonly accessibilityScore: number;
+  readonly relevanceScore: number;
+  readonly overallScore: number;
+  readonly reasons: readonly RecommendationReason[];
+  readonly provenanceDisclaimer: string;
 }
 ```
-*Example UI Rationale*:  
-> *"Arun Sharma is a 1st-degree connection (Strength 4/5) who served as VP of Refining at Reliance Industries (2018–2023). He provides direct operational insight into Jamnagar crack spread dynamics."*
+
+#### Deterministic Ranking Order:
+1. `overallScore` descending
+2. `relevanceScore` descending
+3. `accessibilityScore` descending
+4. `degree` ascending (degree 1 direct contacts prioritized on ties)
+5. `person.name` ascending (lexicographical alphabetical tie-break)
+
+### 7.5 Exported Service API Functions (`src/services/networkService.ts`)
+
+- `buildNetworkGraph(dataset: NetworkDataset): NetworkGraph`
+- `findIntroductionPaths(targetPersonId: string, graph: NetworkGraph): IntroductionPath[]`
+- `getContactsForCompany(ticker: string, graph: NetworkGraph): ContactRecommendation[]`
+- `getContactsForSector(sector: string, graph: NetworkGraph): ContactRecommendation[]`
+- `getContactsForExpertise(query: string, graph: NetworkGraph): ContactRecommendation[]`
+- `searchNetwork(query: string, graph: NetworkGraph): ContactRecommendation[]`
+- `queryNetwork(query: NetworkQuery, graph: NetworkGraph): ContactRecommendation[]`
 
 ---
 
@@ -614,14 +659,14 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 3: Graph Traversal & Scoring Service Implementation (NEXT)    │
-│ • Implement src/services/networkService.ts                                  │
+│ Phase 1, Step 3: Graph Traversal & Scoring Service Implementation (COMPLETE) │
+│ • Implemented src/services/networkService.ts                                │
 │ • BFS pathfinding & explainable relevance ranking algorithms                │
-│ • Add automated unit test suite (scripts/test_network_service.mjs)          │
+│ • Automated unit test suite in scripts/test_network_service.mjs (167 passing)│
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 4: Standalone Network UI & Navigation                         │
+│ Phase 1, Step 4: Standalone Network UI & Navigation (NEXT)                  │
 │ • Build standalone NetworkView component with search & degree filters       │
 │ • Integrate navigation in App.tsx and Header.tsx                            │
 └──────────────────────────────────────┬──────────────────────────────────────┘
@@ -666,6 +711,31 @@ To ensure disciplined execution without regressions, the implementation follows 
 - **Automated Test Suite**: `scripts/test_network_dataset.mjs` executes 98 unit tests via `jiti`, verifying production dataset validity (0 failures) and rejecting 17 corrupted edge-case variations.
 - **Validation Execution**: `validateNetworkDataset(NETWORK_DATASET)` returns `isValid: true` with 0 failures.
 
+### 12.2 Phase 1 Step 3 Completed Graph Intelligence Service & Traversal Specification
+- **Service Implementation**: `src/services/networkService.ts` implements pure deterministic graph construction, directed/undirected traversal capped at 2 hops, explainable relevance scoring, and contact ranking.
+- **Graph Construction (`buildNetworkGraph`)**:
+  - Enforces pre-construction validation using `validateNetworkDataset`. Rejects corrupted datasets with descriptive Errors.
+  - Indexes all 16 personas in `people: ReadonlyMap<string, Person>`.
+  - Maintains strict directionality: 16 direct investor edges are outward directed only from `INVESTOR_ROOT`; 10 person-to-person edges are stored symmetrically in adjacency lists for undirected traversal.
+  - Never mutates input dataset; returns frozen, read-only structures.
+- **Pathfinding (`findIntroductionPaths`)**:
+  - Evaluates 1-hop direct investor paths and 2-hop introductions via intermediaries.
+  - Strictly caps traversal depth at 2 edges.
+  - Eliminates cyclic or repeated nodes.
+  - Calculates normalized accessibility score ($0-100$):
+    $$\text{accessibilityScore} = \max\left(0, \min\left(100, \text{pathStrength} \times 20 - (\text{hopCount} - 1) \times 15\right)\right)$$
+  - Deterministic sorting: hopCount asc, accessibilityScore desc, intermediary ID asc, edge IDs asc.
+- **Relevance Scoring Engine**:
+  - Multi-signal evaluation for company (`calculateCompanyRelevance`), sector (`calculateSectorRelevance`), expertise (`calculateExpertiseRelevance`), and general search (`calculateGeneralRelevance`).
+  - Grounded sector resolution from verified equity registry and graph employment records.
+  - Every positive point contribution is accompanied by a structured `RecommendationReason`.
+  - Zero-relevance exclusion: candidates with $\text{relevanceScore} \le 0$ are strictly excluded.
+  - Bounded $[0, 100]$ score outputs.
+- **Ranking Formula**:
+  $$\text{overallScore} = \text{round}\left(0.65 \times \text{relevanceScore} + 0.35 \times \text{accessibilityScore}\right)$$
+- **Automated Test Suite**: `scripts/test_network_service.mjs` executes 167 unit tests via `jiti`, passing with 0 failures across graph construction, pathfinding, scoring invariants, and recommendation APIs.
+
+
 ---
 
 ## 13. Explicit Assumptions and Unresolved Design Decisions
@@ -697,4 +767,4 @@ To ensure disciplined execution without regressions, the implementation follows 
 - [x] Decouples relationship accessibility (strength & hops) from professional domain relevance.
 - [x] Enforces strict `SYNTHETIC` provenance tags for prototype safety.
 - [x] Requires zero external graph database dependencies; perfectly compatible with Vite + React SPA.
-- [x] Implementation scoped strictly to domain types, dataset, and validator: zero alteration to existing portfolio, research, or announcement runtime behavior.
+- [x] Implementation scoped strictly to domain types, dataset, validator, and pure graph service: zero UI alterations or modifications to existing portfolio, research, or announcement runtime behavior.
