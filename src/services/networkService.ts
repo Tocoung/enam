@@ -17,6 +17,8 @@ import {
   ConnectionStrength,
   SYNTHETIC_DATASET_DISCLAIMER,
   OrganisationRef,
+  NetworkOverviewMetrics,
+  ExpertiseCategory,
 } from '../types/network';
 import { validateNetworkDataset } from '../data/networkData';
 import { LOCAL_VERIFIED_SYMBOL_REGISTRY } from '../data/researchData';
@@ -1274,4 +1276,61 @@ export function queryNetwork(
     case 'GENERAL':
       return searchNetwork(query.query, graph);
   }
+}
+
+/**
+ * Computes high-level overview metrics for the Network view from the indexed graph.
+ *
+ * Metrics:
+ * - totalContacts: Total personas indexed in graph.people
+ * - firstDegreeCount: Count of personas directly connected to INVESTOR_ROOT
+ * - secondDegreeCount: Count of personas reachable via 2 hops through intermediaries
+ * - totalEdges: Total edges in dataset
+ * - directInvestorEdges: Count of edges originating at INVESTOR_ROOT
+ * - peerToPeerEdges: Count of mutual peer-to-peer relationships
+ * - expertiseCategoryCounts: Distribution of expertise tags by category
+ * - totalExpertiseTags: Sum of all expertise tags
+ * - provenanceNotice: Synthetic dataset disclosure string
+ */
+export function computeNetworkOverviewMetrics(graph: NetworkGraph): NetworkOverviewMetrics {
+  let firstDegreeCount = 0;
+  let secondDegreeCount = 0;
+  let totalExpertiseTags = 0;
+
+  const expertiseCategoryCounts: Record<ExpertiseCategory, number> = {
+    SECTOR_INDUSTRY: 0,
+    FUNCTIONAL_OPERATIONS: 0,
+    GOVERNANCE_REGULATORY: 0,
+    TECHNOLOGY_PLATFORMS: 0,
+    CAPITAL_ALLOCATION: 0,
+  };
+
+  for (const person of graph.people.values()) {
+    const paths = findIntroductionPaths(person.id, graph);
+    const has1st = paths.some((p) => p.degree === 1);
+    const has2nd = paths.some((p) => p.degree === 2);
+    if (has1st) firstDegreeCount++;
+    if (has2nd) secondDegreeCount++;
+
+    for (const exp of person.expertise) {
+      totalExpertiseTags++;
+      if (expertiseCategoryCounts[exp.category] !== undefined) {
+        expertiseCategoryCounts[exp.category]++;
+      }
+    }
+  }
+
+  const rootEdges = graph.adjacency.get(graph.rootInvestorId) || [];
+
+  return {
+    totalContacts: graph.people.size,
+    firstDegreeCount,
+    secondDegreeCount,
+    totalEdges: graph.totalEdges,
+    directInvestorEdges: rootEdges.length,
+    peerToPeerEdges: graph.totalEdges - rootEdges.length,
+    expertiseCategoryCounts,
+    totalExpertiseTags,
+    provenanceNotice: SYNTHETIC_DATASET_DISCLAIMER,
+  };
 }

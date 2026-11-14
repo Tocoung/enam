@@ -345,3 +345,19 @@ export type NetworkQuery =
   | ExpertiseNetworkQuery
   | GeneralSearchNetworkQuery;
 
+/**
+ * Summary KPI metrics for the Network Overview tab.
+ * Dynamically computed from graph structure and personas.
+ */
+export interface NetworkOverviewMetrics {
+  readonly totalContacts: number;
+  readonly firstDegreeCount: number;
+  readonly secondDegreeCount: number;
+  readonly totalEdges: number;
+  readonly directInvestorEdges: number;
+  readonly peerToPeerEdges: number;
+  readonly expertiseCategoryCounts: Record<ExpertiseCategory, number>;
+  readonly totalExpertiseTags: number;
+  readonly provenanceNotice: string;
+}
+

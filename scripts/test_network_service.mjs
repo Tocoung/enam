@@ -35,6 +35,7 @@ const {
   calculateOverallScore,
   calculateScoreBreakdown,
   sanitizeScore,
+  computeNetworkOverviewMetrics,
   getContactsForCompany,
   getContactsForSector,
   getContactsForExpertise,
@@ -92,6 +93,19 @@ assert(graph.rootInvestorId === 'INVESTOR_ROOT', 'Graph preserves INVESTOR_ROOT 
 assert(graph.totalNodes === 17, 'Total nodes equals 17 (16 personas + INVESTOR_ROOT)', graph.totalNodes);
 assert(graph.totalEdges === 26, 'Total edges equals 26', graph.totalEdges);
 assert(graph.people.size === 16, 'All 16 people indexed in people map', graph.people.size);
+
+// Network overview metrics computation
+const overviewMetrics = computeNetworkOverviewMetrics(graph);
+assert(overviewMetrics.totalContacts === 16, 'overviewMetrics.totalContacts is 16');
+assert(overviewMetrics.firstDegreeCount === 16, 'overviewMetrics.firstDegreeCount is 16');
+assert(overviewMetrics.secondDegreeCount === 13, 'overviewMetrics.secondDegreeCount is 13');
+assert(overviewMetrics.totalEdges === 26, 'overviewMetrics.totalEdges is 26');
+assert(overviewMetrics.directInvestorEdges === 16, 'overviewMetrics.directInvestorEdges is 16');
+assert(overviewMetrics.peerToPeerEdges === 10, 'overviewMetrics.peerToPeerEdges is 10');
+assert(overviewMetrics.totalExpertiseTags === 48, 'overviewMetrics.totalExpertiseTags is 48');
+assert(overviewMetrics.provenanceNotice.includes('SYNTHETIC'), 'overviewMetrics.provenanceNotice contains SYNTHETIC');
+assert(overviewMetrics.expertiseCategoryCounts.SECTOR_INDUSTRY > 0, 'SECTOR_INDUSTRY tags present');
+assert(overviewMetrics.expertiseCategoryCounts.FUNCTIONAL_OPERATIONS > 0, 'FUNCTIONAL_OPERATIONS tags present');
 
 // ReadOnlyMap verification
 assert(graph.people instanceof ReadOnlyMap, 'graph.people is an instance of ReadOnlyMap');

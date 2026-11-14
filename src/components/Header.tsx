@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, ShieldCheck, LayoutDashboard, Sparkles, Newspaper } from './icons';
+import { Sliders, ShieldCheck, LayoutDashboard, Sparkles, Newspaper, Users } from './icons';
 import { PortfolioDataMode } from '../types/portfolio';
 
 interface HeaderProps {
@@ -11,8 +11,8 @@ interface HeaderProps {
   onSelectPortfolioMode: (mode: PortfolioDataMode) => void;
   snapshotAsOfDate?: string | null;
   snapshotRetrievedAt?: string;
-  activePage: 'dashboard' | 'research' | 'announcements';
-  onSelectPage: (page: 'dashboard' | 'research' | 'announcements') => void;
+  activePage: 'dashboard' | 'research' | 'announcements' | 'network';
+  onSelectPage: (page: 'dashboard' | 'research' | 'announcements' | 'network') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -153,6 +153,21 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Announcements</span>
             <span className="hidden sm:inline text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
               LODR
+            </span>
+          </button>
+
+          <button
+            onClick={() => onSelectPage('network')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+              activePage === 'network'
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Network</span>
+            <span className="hidden sm:inline text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+              TIES
             </span>
           </button>
         </nav>

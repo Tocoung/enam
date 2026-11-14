@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles, Newspaper } from './components/icons';
+import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles, Newspaper, Users } from './components/icons';
 import { DEFAULT_THRESHOLDS } from './data/portfolioData';
 import {
   computeStockMetrics,
@@ -22,12 +22,16 @@ import { Watchlist } from './components/Watchlist';
 import { ThresholdSettingsModal } from './components/ThresholdSettingsModal';
 import { ResearchCopilot } from './components/ResearchCopilot';
 import { AnnouncementFeed } from './components/AnnouncementFeed';
+import { NetworkView } from './components/NetworkView';
 
 export default function App() {
-  // Navigation state between Dashboard, Research Copilot, and Announcements
-  const [activePage, setActivePage] = useState<'dashboard' | 'research' | 'announcements'>(() => {
+  // Navigation state between Dashboard, Research Copilot, Announcements, and Network
+  const [activePage, setActivePage] = useState<'dashboard' | 'research' | 'announcements' | 'network'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
+      if (params.get('page') === 'network') {
+        return 'network';
+      }
       if (params.get('page') === 'announcements') {
         return 'announcements';
       }
@@ -225,13 +229,16 @@ export default function App() {
             onOpenAnnouncements={handleOpenAnnouncements}
             onBackToDashboard={() => setActivePage('dashboard')}
           />
-        ) : (
+        ) : activePage === 'announcements' ? (
           /* Corporate Announcement Intelligence Feed */
           <AnnouncementFeed
             initialTicker={announcementFilterTicker}
             onClearFilter={() => setAnnouncementFilterTicker(undefined)}
             onOpenResearch={handleOpenResearch}
           />
+        ) : (
+          /* Network Intelligence Interface */
+          <NetworkView />
         )}
       </main>
 
@@ -246,7 +253,7 @@ export default function App() {
       />
 
       {/* 5. Mobile Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-1 py-2 grid grid-cols-5 items-center justify-items-center">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-1 py-2 grid grid-cols-6 items-center justify-items-center">
         <button
           onClick={() => {
             setActivePage('dashboard');
@@ -307,6 +314,18 @@ export default function App() {
         >
           <Newspaper className="w-4 h-4" />
           <span className="truncate">Filings</span>
+        </button>
+
+        <button
+          onClick={() => setActivePage('network')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
+            activePage === 'network'
+              ? 'text-indigo-400 font-semibold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="truncate">Network</span>
         </button>
 
         <button
