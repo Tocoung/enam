@@ -73,7 +73,7 @@ export const NetworkContactProfileModal: React.FC<NetworkContactProfileModalProp
             </span>
             <span>•</span>
             <span className="text-amber-200/90 text-[10px]">
-              Not an actual executive contact. Created for algorithmic demonstration.
+              Synthetic network profiles and relationships; company references use the prototype&apos;s verified ticker registry.
             </span>
           </div>
           <button
@@ -246,7 +246,7 @@ export const NetworkContactProfileModal: React.FC<NetworkContactProfileModalProp
           <div>
             <div className="flex items-center gap-2 text-sm font-bold text-white mb-2.5">
               <Award className="w-4 h-4 text-indigo-400" />
-              <span>Verified Domain Expertise ({person.expertise.length})</span>
+              <span>Domain Expertise ({person.expertise.length})</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

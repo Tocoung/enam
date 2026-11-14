@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, Bell, SlidersHorizontal, ArrowLeft, Sparkles, Newspaper, Users } from './components/icons';
 import { DEFAULT_THRESHOLDS } from './data/portfolioData';
 import {
@@ -15,6 +15,13 @@ import {
   AlertFilterCategory,
   PortfolioDataMode,
 } from './types/portfolio';
+import {
+  AppPage,
+  NavigationState,
+  parseNavigationFromUrl,
+  buildUrlForNavigation,
+  isRedundantNavigation,
+} from './services/navigationService';
 import { Header } from './components/Header';
 import { PortfolioSummary } from './components/PortfolioSummary';
 import { AlertFeed } from './components/AlertFeed';
@@ -25,42 +32,90 @@ import { AnnouncementFeed } from './components/AnnouncementFeed';
 import { NetworkView } from './components/NetworkView';
 
 export default function App() {
+  // Initial navigation state parsed from window.location.search
+  const initialNav = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return parseNavigationFromUrl(window.location.search);
+    }
+    return { page: 'dashboard' as AppPage };
+  }, []);
+
   // Navigation state between Dashboard, Research Copilot, Announcements, and Network
-  const [activePage, setActivePage] = useState<'dashboard' | 'research' | 'announcements' | 'network'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('page') === 'network') {
-        return 'network';
-      }
-      if (params.get('page') === 'announcements') {
-        return 'announcements';
-      }
-      if (params.get('page') === 'research' || params.get('ticker')) {
-        return 'research';
-      }
-    }
-    return 'dashboard';
-  });
+  const [activePage, setActivePage] = useState<AppPage>(initialNav.page);
 
-  const [researchTicker, setResearchTicker] = useState<string | undefined>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const t = params.get('ticker');
-      if (t) return t.toUpperCase();
-    }
-    return undefined;
-  });
+  const [researchTicker, setResearchTicker] = useState<string | undefined>(
+    initialNav.page === 'research' ? initialNav.ticker : undefined
+  );
 
-  const [announcementFilterTicker, setAnnouncementFilterTicker] = useState<string | undefined>(() => {
+  const [announcementFilterTicker, setAnnouncementFilterTicker] = useState<string | undefined>(
+    initialNav.page === 'announcements' ? initialNav.ticker : undefined
+  );
+
+  // Synchronize URL and React state on user navigation
+  const navigateTo = (
+    targetPage: AppPage,
+    targetTicker?: string,
+    replace = false
+  ) => {
+    const currentTicker =
+      activePage === 'research'
+        ? researchTicker
+        : activePage === 'announcements'
+        ? announcementFilterTicker
+        : undefined;
+
+    const targetState: NavigationState = {
+      page: targetPage,
+      ticker: targetTicker ? targetTicker.trim().toUpperCase() : undefined,
+    };
+
+    // Avoid updating history unnecessarily when the requested page and ticker are already active
+    if (isRedundantNavigation({ page: activePage, ticker: currentTicker }, targetState)) {
+      return;
+    }
+
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('page') === 'announcements') {
-        const t = params.get('ticker');
-        if (t) return t.toUpperCase();
+      const targetUrl = buildUrlForNavigation(targetState, window.location.pathname);
+      if (replace) {
+        window.history.replaceState(targetState, '', targetUrl);
+      } else {
+        window.history.pushState(targetState, '', targetUrl);
       }
     }
-    return undefined;
-  });
+
+    setActivePage(targetState.page);
+    if (targetState.page === 'research') {
+      setResearchTicker(targetState.ticker);
+      setAnnouncementFilterTicker(undefined);
+    } else if (targetState.page === 'announcements') {
+      setAnnouncementFilterTicker(targetState.ticker);
+      setResearchTicker(undefined);
+    } else {
+      setResearchTicker(undefined);
+      setAnnouncementFilterTicker(undefined);
+    }
+  };
+
+  // Support browser Back/Forward navigation by listening to popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const nav = parseNavigationFromUrl(window.location.search);
+      setActivePage(nav.page);
+      if (nav.page === 'research') {
+        setResearchTicker(nav.ticker);
+        setAnnouncementFilterTicker(undefined);
+      } else if (nav.page === 'announcements') {
+        setAnnouncementFilterTicker(nav.ticker);
+        setResearchTicker(undefined);
+      } else {
+        setResearchTicker(undefined);
+        setAnnouncementFilterTicker(undefined);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // User-selectable portfolio data mode: default is DEMO
   const [portfolioMode, setPortfolioMode] = useState<PortfolioDataMode>('DEMO');
@@ -110,13 +165,11 @@ export default function App() {
   };
 
   const handleOpenResearch = (ticker: string) => {
-    setResearchTicker(ticker);
-    setActivePage('research');
+    navigateTo('research', ticker);
   };
 
   const handleOpenAnnouncements = (ticker?: string) => {
-    setAnnouncementFilterTicker(ticker ? ticker.toUpperCase() : undefined);
-    setActivePage('announcements');
+    navigateTo('announcements', ticker);
   };
 
   const activeThresholdsLabel = `±${thresholds.priceChangePercentThreshold}% / ${thresholds.volumeRatioThreshold}x`;
@@ -135,10 +188,7 @@ export default function App() {
         snapshotRetrievedAt={snapshotMeta.retrievedAt}
         activePage={activePage}
         onSelectPage={(page) => {
-          if (page === 'announcements' && activePage !== 'announcements') {
-            setAnnouncementFilterTicker(undefined);
-          }
-          setActivePage(page);
+          navigateTo(page);
         }}
       />
 
@@ -225,15 +275,33 @@ export default function App() {
           /* Research Copilot Page */
           <ResearchCopilot
             initialTicker={researchTicker}
-            onClearInitialTicker={() => setResearchTicker(undefined)}
+            onClearInitialTicker={() => {
+              setResearchTicker(undefined);
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(
+                  { page: 'research' },
+                  '',
+                  buildUrlForNavigation({ page: 'research' }, window.location.pathname)
+                );
+              }
+            }}
             onOpenAnnouncements={handleOpenAnnouncements}
-            onBackToDashboard={() => setActivePage('dashboard')}
+            onBackToDashboard={() => navigateTo('dashboard')}
           />
         ) : activePage === 'announcements' ? (
           /* Corporate Announcement Intelligence Feed */
           <AnnouncementFeed
             initialTicker={announcementFilterTicker}
-            onClearFilter={() => setAnnouncementFilterTicker(undefined)}
+            onClearFilter={() => {
+              setAnnouncementFilterTicker(undefined);
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(
+                  { page: 'announcements' },
+                  '',
+                  buildUrlForNavigation({ page: 'announcements' }, window.location.pathname)
+                );
+              }
+            }}
             onOpenResearch={handleOpenResearch}
           />
         ) : (
@@ -256,7 +324,7 @@ export default function App() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 px-1 py-2 grid grid-cols-6 items-center justify-items-center">
         <button
           onClick={() => {
-            setActivePage('dashboard');
+            navigateTo('dashboard');
             setMobileTab('watchlist');
           }}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
@@ -271,7 +339,7 @@ export default function App() {
 
         <button
           onClick={() => {
-            setActivePage('dashboard');
+            navigateTo('dashboard');
             setMobileTab('alerts');
           }}
           className={`relative flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
@@ -290,7 +358,7 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActivePage('research')}
+          onClick={() => navigateTo('research')}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'research'
               ? 'text-indigo-400 font-semibold'
@@ -302,10 +370,7 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => {
-            setAnnouncementFilterTicker(undefined);
-            setActivePage('announcements');
-          }}
+          onClick={() => navigateTo('announcements')}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'announcements'
               ? 'text-indigo-400 font-semibold'
@@ -317,7 +382,7 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActivePage('network')}
+          onClick={() => navigateTo('network')}
           className={`flex flex-col items-center gap-1 text-[10px] font-medium transition-colors w-full ${
             activePage === 'network'
               ? 'text-indigo-400 font-semibold'

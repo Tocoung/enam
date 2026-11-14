@@ -196,11 +196,11 @@ export const NetworkView: React.FC = () => {
                 <span>Network Intelligence</span>
               </h1>
               <span className="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                16 Executive Ties
+                16 Prototype Ties
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Deterministic relationship intelligence graph for Indian equity markets. Discover verified executive contacts, past corporate tenure, peer-sector operators, and introduction paths.
+              Deterministic relationship intelligence graph for Indian equity markets. Discover synthetic network profiles, past corporate tenure, peer-sector operators, and introduction paths.
             </p>
           </div>
 
@@ -448,7 +448,7 @@ export const NetworkView: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>Browsing all {metrics.totalContacts} synthetic contacts in the network index.</span>
+              <span>Browsing all {metrics.totalContacts} synthetic profiles in the network index.</span>
               <span className="font-mono text-indigo-300">Ranked by Connection Strength</span>
             </div>
           )}
@@ -464,11 +464,11 @@ export const NetworkView: React.FC = () => {
               </span>
             ) : queryMode === 'ALL_DIRECTORY' ? (
               <span>
-                <strong>Directory Mode:</strong> Viewing all network contacts. Click on any contact card to inspect full career history, mutual paths, and domain proficiencies.
+                <strong>Directory Mode:</strong> Viewing all synthetic network profiles. Click on any contact card to inspect full career history, mutual paths, and domain proficiencies.
               </span>
             ) : (
               <span>
-                <strong>Relevance Ranking:</strong> Overall Score strictly balances <strong>Domain Relevance (65%)</strong> (direct corporate tenure, sector peer experience, verified skills) and <strong>Relationship Accessibility (35%)</strong> (path length & tie strengths).
+                <strong>Relevance Ranking:</strong> Overall Score strictly balances <strong>Domain Relevance (65%)</strong> (direct corporate tenure, sector peer experience, profile domain skills) and <strong>Relationship Accessibility (35%)</strong> (path length & tie strengths).
               </span>
             )}
           </p>
@@ -524,7 +524,7 @@ export const NetworkView: React.FC = () => {
             <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
               {queryMode === 'DISCOVERY'
                 ? searchQuery.trim()
-                  ? `No synthetic network contacts matched "${searchQuery}". Try searching for another executive name, company, or domain skill.`
+                  ? `No synthetic network profiles matched "${searchQuery}". Try searching for another persona name, company, or domain skill.`
                   : 'Type a query in the search bar above or choose a suggested topic to explore the network.'
                 : 'No contacts met the active degree or category filter requirements.'}
             </p>

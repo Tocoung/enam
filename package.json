@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "node scripts/test_portfolio_adapter_ts.mjs && node scripts/test_network_dataset.mjs && node scripts/test_network_service.mjs",
+    "test": "node scripts/test_portfolio_adapter_ts.mjs && node scripts/test_network_dataset.mjs && node scripts/test_network_service.mjs && node scripts/test_navigation.mjs",
     "test:py": "python3 scripts/test_portfolio_adapter.py && python3 scripts/test_sync_eod_data.py"
   },
   "dependencies": {

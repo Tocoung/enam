@@ -39,7 +39,7 @@ export const NetworkOverviewCards: React.FC<NetworkOverviewCardsProps> = ({
               </span>
             </div>
             <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed">
-              All 16 executive personas, employment histories, and relationship edges are synthetic models created for the FINN intelligence challenge. Grounded in NSE/BSE listed equity registries, but not real individuals.
+              All 16 people and the relationship graph are synthetic prototype data. Synthetic network profiles and relationships; company references use the prototype&apos;s verified ticker registry.
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export const NetworkOverviewCards: React.FC<NetworkOverviewCardsProps> = ({
             </span>
           </div>
           <div className="mt-1 text-[11px] text-slate-400">
-            {metrics.totalExpertiseTags} domain expertise tags verified
+            {metrics.totalExpertiseTags} profile domain expertise tags mapped
           </div>
         </div>
       </div>
