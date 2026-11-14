@@ -291,6 +291,16 @@ export interface NetworkEdge {
 }
 ```
 
+### 4.8 Phase 1 Step 2 Domain Model Refinements & Discriminated Union
+In the implemented domain model (`src/types/network.ts`), `OrganisationRef` is structured as a discriminated union over `type`:
+- `ListedOrganisationRef`: `type: 'LISTED_NSE_BSE'`, strictly requires `ticker: string` matching `LOCAL_VERIFIED_SYMBOL_REGISTRY`.
+- `UnlistedCorporateRef`: `type: 'UNLISTED_CORPORATE'`, strictly requires `orgId: string` (e.g. `'org-mckinsey-india'`).
+- `EducationalInstitutionRef`: `type: 'EDUCATIONAL_INSTITUTION'`, strictly requires `orgId: string` (e.g. `'org-iit-bombay'`).
+- `RegulatoryGovernmentRef`: `type: 'REGULATORY_GOVERNMENT'`, strictly requires `orgId: string` (e.g. `'org-sebi'`).
+- `IndustryBodyRef`: `type: 'INDUSTRY_BODY'`, strictly requires `orgId: string` (e.g. `'org-cii'`).
+
+This compile-time discrimination prevents invalid combinations (such as listed entities lacking a ticker or unlisted entities lacking an orgId) and enforces FINN's local registry reuse.
+
 ---
 
 ## 5. Relationship Graph Representation
@@ -575,25 +585,26 @@ src/
 
 ---
 
-## 12. Implementation Sequence for Subsequent Steps
+## 12. Implementation Sequence & Status
 
-To ensure disciplined execution without regressions, the implementation will follow a strict phased roadmap:
+To ensure disciplined execution without regressions, the implementation follows a strict phased roadmap:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Phase 1, Step 1: Architectural Design & Domain Model Specification (CURRENT)│
+│ Phase 1, Step 1: Architectural Design & Domain Model Specification (COMPLETE)│
 │ Deliverable: docs/NETWORK_ARCHITECTURE.md (Design Only)                    │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 2: Domain Types & Synthetic Dataset Authoring                 │
-│ • Author src/types/network.ts                                               │
-│ • Create curated synthetic dataset in src/data/networkData.ts               │
-│ • Strict reuse of LOCAL_VERIFIED_SYMBOL_REGISTRY tickers                    │
+│ Phase 1, Step 2: Domain Types & Synthetic Dataset Authoring (COMPLETE)      │
+│ • Implemented src/types/network.ts with discriminated unions               │
+│ • Created 16-persona synthetic dataset in src/data/networkData.ts           │
+│ • Authored automated validation function (18 strict integrity checks)       │
+│ • Added unit test suite in scripts/test_network_dataset.mjs (52 passing)   │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ Phase 1, Step 3: Graph Traversal & Scoring Service Implementation           │
+│ Phase 1, Step 3: Graph Traversal & Scoring Service Implementation (NEXT)    │
 │ • Implement src/services/networkService.ts                                  │
 │ • BFS pathfinding & explainable relevance ranking algorithms                │
 │ • Add automated unit test suite (scripts/test_network_service.mjs)          │
@@ -614,6 +625,35 @@ To ensure disciplined execution without regressions, the implementation will fol
 │ • Final documentation review and submission package                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 12.1 Phase 1 Step 2 Completed Dataset Specification & Validation Results
+- **Dataset Scale**: Exactly 16 detailed personas (`NETWORK_PERSONAS`), 16 direct investor edges (`INVESTOR_ROOT` $\rightarrow$ Person), and 10 person-to-person edges (total 26 edges).
+- **Provenance Standard**: 100% of persona and relationship records explicitly carry `provenance: 'SYNTHETIC'` and `isSynthetic: true`.
+- **Equity Registry Grounding**: 24 listed employment records reference verified canonical tickers from `LOCAL_VERIFIED_SYMBOL_REGISTRY` (covering `RELIANCE`, `TCS`, `INFY`, `SWIGGY`, `ZOMATO`, `BAJFINANCE`, `HDFCBANK`, `ICICIBANK`, `SBIN`, `BHARTIARTL`, `IDEA`, `SUNPHARMA`, `DRREDDY`, `LT`, `WIPRO`, `MARUTI`, `TATAMOTORS`, `TRENT`, `HINDUNILVR`, `PAYTM`). Zero unindexed phantom tickers.
+- **Reachability Guarantees**:
+  - Direct (1st-degree): 16 of 16 personas ($100\%$) directly reachable from `INVESTOR_ROOT`.
+  - 2nd-degree paths: 13 distinct personas are reachable via 2 hops through intermediate peers (`person-vikram-sen`, `person-priya-nair`, `person-karan-mehta`, `person-amit-tandon`, `person-kavita-iyer`), exceeding the $\ge 8$ requirement.
+- **Automated Validation**: `validateNetworkDataset(NETWORK_DATASET)` strictly validates 18 integrity rules:
+  1. Exactly 16 personas.
+  2. Non-empty IDs starting with `person-`.
+  3. Unique persona IDs.
+  4. Provenance strictly `SYNTHETIC` and `isSynthetic === true`.
+  5. At most one current employment record (`isCurrent: true`, `endDate: null`).
+  6. Non-current roles require `endDate !== null`.
+  7. Chronological dates (`startDate <= endDate`).
+  8. Listed tickers exist in `LOCAL_VERIFIED_SYMBOL_REGISTRY`.
+  9. Education institution type is `EDUCATIONAL_INSTITUTION`.
+  10. Education years chronological (`startYear <= endYear`).
+  11. At least one structured expertise tag per persona.
+  12. Global ID uniqueness across all personas, employment records, education records, expertise tags, and edges.
+  13. Exactly 16 direct investor edges from `INVESTOR_ROOT`.
+  14. Every persona has a direct edge to `INVESTOR_ROOT`.
+  15. At least 8 person-to-person edges (10 implemented).
+  16. All edge source and target IDs reference valid, known nodes.
+  17. Zero self-edges (`sourceNodeId !== targetNodeId`).
+  18. Edge connection strength is an integer between 1 and 5.
+- **Test Suite**: `scripts/test_network_dataset.mjs` executes 52 assertion tests via `jiti`, verifying production dataset validity (0 failures), metadata counts, 1st and 2nd degree reachability, ticker provenance, and rejection of 7 corrupted edge cases (duplicate ID, invalid ticker, dangling edge, invalid strength, multiple current roles, non-synthetic provenance, self-edge).
+- **Validation Execution**: `validateNetworkDataset(NETWORK_DATASET)` returns `isValid: true` with 0 failures.
 
 ---
 
