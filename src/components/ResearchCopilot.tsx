@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Building2,
@@ -14,6 +14,7 @@ import {
   X,
   Info,
   Newspaper,
+  Users,
 } from './icons';
 import { ResearchReport, ResearchStatus } from '../types/research';
 import {
@@ -21,6 +22,11 @@ import {
   validateTicker,
   EXAMPLE_TICKERS,
 } from '../services/researchService';
+import { Person } from '../types/network';
+import { NETWORK_DATASET } from '../data/networkData';
+import { buildNetworkGraph, getContactsForCompany } from '../services/networkService';
+import { NetworkContactCard } from './network/NetworkContactCard';
+import { NetworkContactProfileModal } from './network/NetworkContactProfileModal';
 
 interface ResearchCopilotProps {
   initialTicker?: string;
@@ -40,6 +46,16 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
   const [status, setStatus] = useState<ResearchStatus>('idle');
   const [report, setReport] = useState<ResearchReport | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+
+  // Memoized synthetic network graph to prevent reconstructing on every render
+  const graph = useMemo(() => buildNetworkGraph(NETWORK_DATASET), []);
+
+  // Contextual network recommendations for the currently evaluated company
+  const contextualContacts = useMemo(() => {
+    if (!report || !report.ticker) return [];
+    return getContactsForCompany(report.ticker, graph);
+  }, [report?.ticker, graph]);
 
   // Trigger search whenever a valid initialTicker is passed in from Dashboard
   useEffect(() => {
@@ -381,6 +397,18 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {contextualContacts.length > 0 && (
+                      <a
+                        href="#network-contacts"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition shadow-sm active:scale-95"
+                        title="Jump to contextual network recommendations"
+                      >
+                        <Users className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>
+                          {contextualContacts.length} Network {contextualContacts.length === 1 ? 'Contact' : 'Contacts'} ↓
+                        </span>
+                      </a>
+                    )}
                     {onOpenAnnouncements && (
                       <button
                         onClick={() => onOpenAnnouncements(report.ticker)}
@@ -413,6 +441,62 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
                     </span>
                   </p>
                 </div>
+              </section>
+
+              {/* Contextual Network Intelligence: Who can help me understand this company? */}
+              <section id="network-contacts" className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4 scroll-mt-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-5 h-5 text-indigo-400" />
+                      <h4 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                        Who can help me understand this company?
+                      </h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
+                        Contextual Network
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Identifies professionals in your synthetic network with direct employment history, peer leadership experience, or domain expertise relevant to {report.companyOverview.companyName} ({report.ticker}).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {contextualContacts.length} {contextualContacts.length === 1 ? 'Contact' : 'Contacts'} Found
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                      Depth: ≤2 hops
+                    </span>
+                  </div>
+                </div>
+
+                {contextualContacts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {contextualContacts.map((rec) => (
+                      <NetworkContactCard
+                        key={rec.person.id}
+                        person={rec.person}
+                        recommendation={rec}
+                        onSelectPerson={setSelectedPerson}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-lg bg-slate-950/70 border border-slate-800 text-center space-y-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                      <Users className="w-4 h-4 text-slate-500" />
+                    </div>
+                    <h5 className="text-xs font-semibold text-slate-200">
+                      No relevant synthetic network contacts found
+                    </h5>
+                    <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
+                      No direct (1st-degree) or warm-intro (2nd-degree) contacts in your synthetic network currently match {report.ticker} through corporate tenure, sector leadership, or specialized domain expertise.
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-500">
+                      FINN strictly enforces non-inference and avoids fabricating professional affiliations.
+                    </p>
+                  </div>
+                )}
               </section>
 
               {/* Financial Snapshot */}
@@ -880,6 +964,13 @@ export const ResearchCopilot: React.FC<ResearchCopilotProps> = ({
           )}
         </div>
       )}
+
+      {/* Slide-over / Modal Contact Profile Details */}
+      <NetworkContactProfileModal
+        person={selectedPerson}
+        graph={graph}
+        onClose={() => setSelectedPerson(null)}
+      />
     </div>
   );
 };

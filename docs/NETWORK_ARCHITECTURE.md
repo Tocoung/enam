@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 5.1.1 Implemented — Review Pending (Target Contact UI & Documentation Consistency)  
+**Status:** Phase 1, Step 6 Implemented — Review Pending (Contextual Network Intelligence in Research Copilot)  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `57202b4b001c15ad3a8c7af583bd87cc2e2fbf91` (Starting commit for Step 5.1.1)
+**Current Commit:** `13fd29313c98c9af9207109aec4ea87f63767265` (Starting commit for Step 6)
 
 ---
 
@@ -683,9 +683,11 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ 6. Contextual Integration: Push/Pull Intelligence Linking (PLANNED)         │
-│ • Embed company contact recommendations in ResearchCopilot.tsx (Pull)       │
-│ • Enrich corporate announcements in AnnouncementFeed.tsx (Push)             │
+│ 6. Contextual Integration: Research Copilot Pull Workflow (COMPLETE)        │
+│ • Contextual "Who can help me understand this company?" section in dossier  │
+│ • Deterministic company query keying, memoized graph & non-inference guards │
+│ • Reusable NetworkContactCard & NetworkContactProfileModal integration      │
+│ • Automated unit test suite in scripts/test_research_network.mjs (166 tests)│
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
@@ -881,6 +883,42 @@ To ensure disciplined execution without regressions, the implementation follows 
 - **Automated Unit Test Suite (`scripts/test_network_query.mjs`)**:
   - 172 automated unit tests passing (0 failures), covering strict organisation matching, negative partial names, direct targets with 0 facilitators, single facilitators, multiple facilitators, and distinguishability.
 
+### 12.7 Phase 1 Step 6 Completed Contextual Network Intelligence in Research Copilot Specification
+- **Implementation Status**: Complete (Pull Workflow Integration).
+- **Integration Architecture (`src/components/ResearchCopilot.tsx`)**:
+  - Embedded as a dedicated contextual section titled **Who can help me understand this company?** directly inside the company research dossier (Branch A: `report.hasCuratedCoverage && report.companyOverview`).
+  - Appears strictly when a valid company research dossier is active; absent during initial empty search state, loading state, error states, and unindexed ticker fallbacks.
+  - Pure deterministic query keying using `report.ticker` (e.g. `RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, `SWIGGY`).
+  - Zero duplicate company registries: directly reuses `LOCAL_VERIFIED_SYMBOL_REGISTRY` and `getContactsForCompany(ticker, graph)`.
+  - Memoized network graph (`useMemo(() => buildNetworkGraph(NETWORK_DATASET), [])`) prevents redundant in-memory graph reconstruction on re-renders.
+- **Card Presentation & Scoring Transparency**:
+  - Direct reuse of `NetworkContactCard` (`src/components/network/NetworkContactCard.tsx`).
+  - For each recommended persona, presents:
+    1. Persona name, headline, current organisation, and role title.
+    2. Connection degree badge (`1st Degree` vs `2nd Degree`) and explicit `SYNTHETIC` badge.
+    3. Distinct professional relevance score (0–100%) and relationship accessibility score (0–100%).
+    4. Overall weighted match score (65% domain relevance + 35% relationship accessibility) with expandable reconciliation formula.
+    5. Categorized investment relevance rationale (`CURRENT_ROLE`, `PAST_ROLE`, `PEER_ROLE`, `EXPERTISE_EXACT`).
+    6. Compact interactive relationship path visualizer (`NetworkPathVisualizer`) showing traversal steps from `INVESTOR_ROOT`.
+    7. Clear synthetic prototype network disclaimer.
+- **In-Context Profile Inspection**:
+  - Reuses `NetworkContactProfileModal` (`src/components/network/NetworkContactProfileModal.tsx`) as an in-context overlay (`selectedPerson` state in `ResearchCopilot`).
+  - Allows investors to inspect complete employment histories, education records, expertise proficiencies, and referral paths without navigating away from the active company research dossier.
+- **Empty and Edge States**:
+  - Companies in symbol registry with zero network contacts (e.g. `ASIANPAINT`, `BEL`, `KOTAKBANK`): renders a compact, honest empty state explaining that no 1st or 2nd-degree contacts match through corporate tenure, sector leadership, or specialized domain expertise.
+  - Unsupported/unindexed tickers (e.g. `UNKNOWN_CORP`, `CGFSDYMGUJHVGF`): returns 0 recommendations with zero fabricated relationships or hallucinated affiliations.
+  - Dynamic responsiveness: changing the searched ticker immediately recalculates recommendations deterministically.
+- **Automated Test Suite (`scripts/test_research_network.mjs`)**:
+  - 166 automated unit tests passing (0 failures) across 8 test categories:
+    1. Reliance dossier resolution & expected contacts (16 tests).
+    2. TCS dossier resolution & contextual recommendations (12 tests).
+    3. Dynamic ticker switching & recommendation differentiation (9 tests).
+    4. Strict non-inference for unsupported / unknown tickers (7 tests).
+    5. Empty recommendation results & edge state safety (8 tests).
+    6. Distinct professional relevance and relationship accessibility (96 tests).
+    7. Profile selection & detail integrity (18 tests).
+    8. Regression safety for existing network service and natural query workflows (10 tests).
+
 ---
 
 ## 13. Explicit Assumptions and Unresolved Design Decisions
@@ -913,4 +951,5 @@ To ensure disciplined execution without regressions, the implementation follows 
 - [x] Enforces strict `SYNTHETIC` provenance tags for prototype safety.
 - [x] Requires zero external graph database dependencies; perfectly compatible with Vite + React SPA.
 - [x] Network Interface fully integrated with standalone Network UI, URL synchronization (`?page=network`), and Network Copilot natural query workflow.
+- [x] Contextual Network Intelligence integrated into Research Copilot company dossiers (Pull workflow) with in-context profile inspection and non-inference edge safety.
 - [x] Preserves zero modifications to existing portfolio, research, or announcement runtime behavior.
