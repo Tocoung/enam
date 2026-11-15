@@ -219,6 +219,11 @@ export const NetworkView: React.FC = () => {
     setOverviewCategoryFilter('ALL');
   };
 
+  const isPersonConnection =
+    queryMode === 'NATURAL_QUERY' &&
+    naturalQueryResult?.query.intent === 'PERSON_CONNECTION';
+  const targetRec = naturalQueryResult?.targetRecommendation;
+
   return (
     <div className="space-y-6">
       {/* 1. Header & Overview Section */}
@@ -625,51 +630,50 @@ export const NetworkView: React.FC = () => {
 
       {/* 3. Results Section */}
       <div className="space-y-4">
-        {/* Results Header */}
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-white uppercase tracking-wider text-[11px]">
-              {queryMode === 'NATURAL_QUERY'
-                ? naturalQueryResult?.query.intent === 'PERSON_CONNECTION'
-                  ? `Target Contact (${filteredItems.items.length})`
-                  : `Copilot Recommendations (${filteredItems.items.length})`
-                : queryMode === 'DISCOVERY'
-                ? `Search Results (${filteredItems.items.length})`
-                : queryMode === 'COMPANY'
-                ? `Relevant Contacts for ${selectedCompany} (${filteredItems.items.length})`
-                : queryMode === 'SECTOR'
-                ? `Relevant Contacts for ${selectedSector} (${filteredItems.items.length})`
-                : queryMode === 'EXPERTISE'
-                ? `Relevant Contacts for "${selectedExpertise}" (${filteredItems.items.length})`
-                : `Network Contacts Directory (${filteredItems.items.length})`}
-            </span>
-            {degreeFilter !== 'ALL' && (
-              <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">
-                {degreeFilter === '1' ? '1st Degree Only' : '2nd Degree Only'}
+        {/* Results Header (rendered for non-PERSON_CONNECTION queries) */}
+        {!isPersonConnection && (
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white uppercase tracking-wider text-[11px]">
+                {queryMode === 'NATURAL_QUERY'
+                  ? `Copilot Recommendations (${filteredItems.items.length})`
+                  : queryMode === 'DISCOVERY'
+                  ? `Search Results (${filteredItems.items.length})`
+                  : queryMode === 'COMPANY'
+                  ? `Relevant Contacts for ${selectedCompany} (${filteredItems.items.length})`
+                  : queryMode === 'SECTOR'
+                  ? `Relevant Contacts for ${selectedSector} (${filteredItems.items.length})`
+                  : queryMode === 'EXPERTISE'
+                  ? `Relevant Contacts for "${selectedExpertise}" (${filteredItems.items.length})`
+                  : `Network Contacts Directory (${filteredItems.items.length})`}
               </span>
-            )}
-            {overviewCategoryFilter !== 'ALL' && (
-              <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">
-                {overviewCategoryFilter.replace('_', ' ')}
-              </span>
+              {degreeFilter !== 'ALL' && (
+                <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">
+                  {degreeFilter === '1' ? '1st Degree Only' : '2nd Degree Only'}
+                </span>
+              )}
+              {overviewCategoryFilter !== 'ALL' && (
+                <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">
+                  {overviewCategoryFilter.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+
+            {(degreeFilter !== 'ALL' || overviewCategoryFilter !== 'ALL' || searchQuery || (queryMode === 'NATURAL_QUERY' && naturalQueryInput)) && (
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset Filters</span>
+              </button>
             )}
           </div>
-
-          {(degreeFilter !== 'ALL' || overviewCategoryFilter !== 'ALL' || searchQuery || (queryMode === 'NATURAL_QUERY' && naturalQueryInput)) && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Filters</span>
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Introduction Paths Visualizer for Person Connection queries */}
-        {queryMode === 'NATURAL_QUERY' &&
-          naturalQueryResult?.query.intent === 'PERSON_CONNECTION' &&
-          naturalQueryResult.personConnectionPaths &&
+        {isPersonConnection &&
+          naturalQueryResult?.personConnectionPaths &&
           naturalQueryResult.personConnectionPaths.length > 0 && (
             <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 space-y-3">
               <div className="flex items-center justify-between">
@@ -691,8 +695,105 @@ export const NetworkView: React.FC = () => {
             </div>
         )}
 
-        {/* Empty State / Helpful Guidance */}
-        {filteredItems.items.length === 0 ? (
+        {/* Branch 1: PERSON_CONNECTION with valid target */}
+        {isPersonConnection && targetRec ? (
+          <div className="space-y-4">
+            {/* Dedicated Target Section explicitly titled 'Target Contact (Requested Persona)' */}
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/40 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                    Target Contact (Requested Persona)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Requested Target
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-slate-400">
+                  {targetRec.degree === 1 ? '1st-Degree Direct Tie' : '2nd-Degree Referral Target'} • Accessibility: {targetRec.accessibilityScore}/100
+                </span>
+              </div>
+
+              <div className="max-w-2xl">
+                <NetworkContactCard
+                  key={targetRec.person.id}
+                  person={targetRec.person}
+                  recommendation={targetRec}
+                  onSelectPerson={setSelectedPerson}
+                />
+              </div>
+            </div>
+
+            {/* Dedicated Introduction Facilitators section */}
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-indigo-500/30 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-400" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-200">
+                    Introduction Facilitators ({naturalQueryResult.introductionFacilitators?.length || 0})
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Warm Referral Bridges
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  Path Reachability • Not Industry Domain Experts
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                The contacts below are mutual peers along mapped 2nd-degree paths in this synthetic prototype network from INVESTOR_ROOT who can facilitate an introduction to{' '}
+                <strong className="text-white">{naturalQueryResult.query.targetPerson?.name}</strong>. Their position represents graph relationship reachability, not domain expertise in {naturalQueryResult.query.targetPerson?.name}&apos;s sector.
+              </p>
+
+              {naturalQueryResult.introductionFacilitators && naturalQueryResult.introductionFacilitators.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {naturalQueryResult.introductionFacilitators.map((fac) => (
+                    <div
+                      key={fac.person.id}
+                      onClick={() => setSelectedPerson(fac.person)}
+                      className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition cursor-pointer space-y-2 group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-xs font-bold text-white group-hover:text-indigo-300 transition">
+                              {fac.person.name}
+                            </h5>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                              {fac.roleBadge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {fac.person.currentRoleTitle} at {fac.person.currentOrganisation?.name}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 shrink-0">
+                          Reachability: {fac.accessibilityScore}/100
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] font-mono text-indigo-300/90 bg-indigo-950/30 px-2 py-1 rounded border border-indigo-900/40 flex items-center justify-between">
+                        <span>Facilitates:</span>
+                        <span className="text-slate-300">{fac.facilitatedPathSummary}</span>
+                      </div>
+
+                      <p className="text-[10px] text-slate-400 italic">
+                        {fac.explanation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400">
+                  No 2nd-degree introduction facilitators are needed. <strong className="text-white">{naturalQueryResult.query.targetPerson?.name}</strong> is directly connected to INVESTOR_ROOT as a 1st-degree contact.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : filteredItems.items.length === 0 ? (
+          /* Empty State / Helpful Guidance */
           <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
             <div className="h-12 w-12 mx-auto rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400">
               <Compass className="w-6 h-6 text-indigo-400" />
@@ -717,7 +818,7 @@ export const NetworkView: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Cards Grid */
+          /* Cards Grid for non-PERSON_CONNECTION queries */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredItems.kind === 'SEARCH'
               ? (filteredItems.items as NetworkSearchResult[]).map((result) => (
@@ -750,72 +851,6 @@ export const NetworkView: React.FC = () => {
                 })}
           </div>
         )}
-
-        {/* Introduction Facilitators (Separate from professional relevance) */}
-        {queryMode === 'NATURAL_QUERY' &&
-          naturalQueryResult?.query.intent === 'PERSON_CONNECTION' &&
-          naturalQueryResult.introductionFacilitators &&
-          naturalQueryResult.introductionFacilitators.length > 0 && (
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-indigo-500/30 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-indigo-400" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-200">
-                    Introduction Facilitators ({naturalQueryResult.introductionFacilitators.length})
-                  </h4>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    Warm Referral Bridges
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  Path Reachability • Not Industry Domain Experts
-                </span>
-              </div>
-
-              <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-                The contacts below are mutual peers along verified 2nd-degree paths from INVESTOR_ROOT who can facilitate an introduction to{' '}
-                <strong className="text-white">{naturalQueryResult.query.targetPerson?.name}</strong>. Their position represents graph relationship reachability, not domain expertise in {naturalQueryResult.query.targetPerson?.name}&apos;s sector.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                {naturalQueryResult.introductionFacilitators.map((fac) => (
-                  <div
-                    key={fac.person.id}
-                    onClick={() => setSelectedPerson(fac.person)}
-                    className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition cursor-pointer space-y-2 group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h5 className="text-xs font-bold text-white group-hover:text-indigo-300 transition">
-                            {fac.person.name}
-                          </h5>
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                            {fac.roleBadge}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {fac.person.currentRoleTitle} at {fac.person.currentOrganisation?.name}
-                        </p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 shrink-0">
-                        Reachability: {fac.accessibilityScore}/100
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] font-mono text-indigo-300/90 bg-indigo-950/30 px-2 py-1 rounded border border-indigo-900/40 flex items-center justify-between">
-                      <span>Facilitates:</span>
-                      <span className="text-slate-300">{fac.facilitatedPathSummary}</span>
-                    </div>
-
-                    <p className="text-[10px] text-slate-400 italic">
-                      {fac.explanation}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
       </div>
 
       {/* 4. Slide-over / Modal Contact Profile Details */}

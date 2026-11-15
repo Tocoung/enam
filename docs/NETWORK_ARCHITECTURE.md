@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 5.1 Implemented — Review Pending (Organisation Matching & Introduction Recommendation Semantics)  
+**Status:** Phase 1, Step 5.1.1 Implemented — Review Pending (Target Contact UI & Documentation Consistency)  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `d81551ba547f20cfaf40417803b1184bc1993eb3` (Starting commit for Step 5.1)
+**Current Commit:** `57202b4b001c15ad3a8c7af583bd87cc2e2fbf91` (Starting commit for Step 5.1.1)
 
 ---
 
@@ -677,7 +677,8 @@ To ensure disciplined execution without regressions, the implementation follows 
 │ 5. Direct Network Queries: Dedicated Target & Filter Workflows (COMPLETE)   │
 │ • Natural-language query interpretation layer (5 intents) in networkQueryService.ts │
 │ • Non-inference safeguards, alias dictionaries & score breakdown reconciliation │
-│ • Step 5.1 Refinements: strict org-history matching & facilitator semantics │
+│ • Step 5.1 & 5.1.1 Refinements: strict org matching, facilitator semantics  │
+│   and dedicated Target Contact UI section                                   │
 │ • Automated unit test suite in scripts/test_network_query.mjs (172 passing)  │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
@@ -802,7 +803,8 @@ To ensure disciplined execution without regressions, the implementation follows 
   - `npm test`: Full test suite passing across all service and navigation suites.
   - `npm run build`: Production build verified with zero errors.
 
-### 12.5 Phase 1 Step 5 Implemented Direct Network Query Workflow Specification (Review Pending)
+### 12.5 Phase 1 Step 5 Completed Direct Network Query Workflow Specification
+- **Implementation Status**: Complete, incorporating Step 5.1 and Step 5.1.1 refinements.
 - **Typed Query Interpretation Layer (`src/services/networkQueryService.ts`, `src/types/network.ts`)**:
   - Deterministic natural-language parser mapping investor queries into 5 supported intents:
     1. `COMPANY`: Identifies professionals relevant to a listed company (e.g., *"Who can help me understand Reliance?"*, *"Who covers TCS?"*).
@@ -843,20 +845,19 @@ To ensure disciplined execution without regressions, the implementation follows 
   - Dedicated Introduction Paths Box rendering `NetworkPathVisualizer` for all valid referral paths when resolving `PERSON_CONNECTION` queries.
   - Secondary degree (`All`, `1st Degree`, `2nd Degree`) and category filters remain active across all natural query results.
 - **Automated Test Suite (`scripts/test_network_query.mjs`)**:
-  - 120 automated unit tests across 9 test categories:
-    1. Company intent recognition & alias resolution (14 tests).
+  - 172 automated unit tests across 9 test categories:
+    1. Company intent recognition & alias resolution (16 tests).
     2. Sector intent recognition & alias normalization (13 tests).
     3. Expertise intent recognition & alias normalization (14 tests).
-    4. Organisation history intent & tenure retrieval (14 tests).
-    5. Person connection intent & path identification (15 tests).
+    4. Organisation history intent & strict tenure retrieval (18 tests).
+    5. Person connection intent & path identification (19 tests).
     6. Non-inference & unknown entity handling (14 tests).
     7. Empty, whitespace & unrecognized queries (8 tests).
     8. End-to-end execution pipeline & result schema (14 tests).
-    9. Mathematical reconciliation & boundary guarantees (14 tests).
-  - All 120 tests pass with zero failures.
+    9. Introduction facilitators semantics & mathematical reconciliation (56 tests).
+  - All 172 tests pass with zero failures.
 
-
-### 12.6 Phase 1 Step 5.1 Organisation Matching & Introduction Recommendation Semantics Specification (Review Pending)
+### 12.6 Phase 1 Steps 5.1 & 5.1.1 Completed Organisation Matching, Introduction Semantics & Target Contact UI Specification
 - **Strict Organisation-History Matching (`src/services/networkQueryService.ts`)**:
   - Implements a strict matching precedence in `getContactsForOrganisationHistory`:
     1. Canonical ticker equality for listed entities (`emp.organisation.type === 'LISTED_NSE_BSE' && emp.organisation.ticker === targetTicker`).
@@ -866,16 +867,19 @@ To ensure disciplined execution without regressions, the implementation follows 
   - Preserves current role (relevance 100) vs. past role (relevance 80) differentiation, deterministic sorting, and mathematical score breakdown.
 - **Separation of Introduction Facilitators from Professional Relevance**:
   - Intermediaries along 2-hop referral paths are typed as `IntroductionFacilitator` in `src/types/network.ts`.
-  - Kept strictly distinct from domain/professional recommendations (`targetRecommendation` and `recommendations` contain the target persona, while intermediaries reside in `introductionFacilitators`).
+  - Kept strictly distinct from domain/professional recommendations (`targetRecommendation` contains the target persona, while intermediaries reside in `introductionFacilitators`).
   - Labeled explicitly as **Introduction Facilitators**, not company or sector experts.
   - Reasons are restricted to `RELATIONSHIP_PATH`, identifying the full referral path (`INVESTOR_ROOT -> Intermediary -> Target`).
   - Graph proximity is explicitly explained as relationship reachability rather than domain expertise.
   - Facilitator IDs are deduplicated (`Set<string>`), and ranking score reflects path accessibility.
-- **Network Copilot User Interface Integration (`src/components/NetworkView.tsx`)**:
-  - For `PERSON_CONNECTION` queries, the Target Contact is highlighted under a dedicated **Target Contact (Requested Persona)** section with exact match relevance.
-  - When 2-hop intermediaries exist, they are displayed in a dedicated **Introduction Facilitators (Referral Intermediaries)** section with warm-referral badges, facilitated path summaries, and explicit disclaimers that graph reachability does not imply industry domain expertise.
+- **Dedicated Target Contact and Facilitator UI Sections (`src/components/NetworkView.tsx`)**:
+  - For `PERSON_CONNECTION` queries, the Target Contact is rendered in its own dedicated section explicitly titled **Target Contact (Requested Persona)** with emerald hierarchy, full profile drawer interaction, relationship path, and accessibility scores.
+  - The target is omitted from the generic `Copilot Recommendations` card grid, ensuring zero duplication.
+  - When 2-hop intermediaries exist, they are displayed in a separate **Introduction Facilitators** section with warm-referral badges, facilitated path summaries, and explicit disclaimers: *"The contacts below are mutual peers along mapped 2nd-degree paths in this synthetic prototype network from INVESTOR_ROOT who can facilitate an introduction... Their position represents graph relationship reachability, not domain expertise..."*
+  - When zero intermediaries exist (e.g., direct 1st-degree contact), a clear notice explains that no 2nd-degree facilitators are needed because the target is directly connected.
+  - The separation remains clear whether there are zero, one, or multiple facilitators.
 - **Automated Unit Test Suite (`scripts/test_network_query.mjs`)**:
-  - 172 automated unit tests passing (0 failures), including negative tests for partial organisation names and full facilitator semantics verification.
+  - 172 automated unit tests passing (0 failures), covering strict organisation matching, negative partial names, direct targets with 0 facilitators, single facilitators, multiple facilitators, and distinguishability.
 
 ---
 
