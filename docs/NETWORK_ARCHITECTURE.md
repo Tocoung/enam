@@ -3,9 +3,9 @@
 **Document Version:** 1.0.0-DRAFT  
 **Author:** Founding AI Engineer / FINN Architecture Team  
 **Date:** November 2026  
-**Status:** Phase 1, Step 6 Implemented — Review Pending (Contextual Network Intelligence in Research Copilot)  
+**Status:** Phase 1, Step 6.1 Implemented — Review Pending (Research Copilot UI Verification & Scope Cleanup)  
 **Target Repository:** `https://github.com/Tocoung/enam`  
-**Current Commit:** `13fd29313c98c9af9207109aec4ea87f63767265` (Starting commit for Step 6)
+**Current Commit:** `5bd4548d4a11f588316c2f0c0788a6918297726a` (Starting commit for Step 6.1)
 
 ---
 
@@ -683,7 +683,7 @@ To ensure disciplined execution without regressions, the implementation follows 
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
-│ 6. Contextual Integration: Research Copilot Pull Workflow (COMPLETE)        │
+│ 6. Contextual Integration: Research Copilot Pull (REVIEW PENDING)           │
 │ • Contextual "Who can help me understand this company?" section in dossier  │
 │ • Deterministic company query keying, memoized graph & non-inference guards │
 │ • Reusable NetworkContactCard & NetworkContactProfileModal integration      │
@@ -883,10 +883,12 @@ To ensure disciplined execution without regressions, the implementation follows 
 - **Automated Unit Test Suite (`scripts/test_network_query.mjs`)**:
   - 172 automated unit tests passing (0 failures), covering strict organisation matching, negative partial names, direct targets with 0 facilitators, single facilitators, multiple facilitators, and distinguishability.
 
-### 12.7 Phase 1 Step 6 Completed Contextual Network Intelligence in Research Copilot Specification
-- **Implementation Status**: Complete (Pull Workflow Integration).
+### 12.7 Phase 1 Step 6 Contextual Network Intelligence in Research Copilot Specification (Review Pending)
+- **Implementation Status**: Implemented — Review Pending (Pull Workflow Integration & Step 6.1 Verification).
 - **Integration Architecture (`src/components/ResearchCopilot.tsx`)**:
   - Embedded as a dedicated contextual section titled **Who can help me understand this company?** directly inside the company research dossier (Branch A: `report.hasCuratedCoverage && report.companyOverview`).
+  - Positioned immediately beneath the Company Overview card (above Financial Snapshot) for high visibility on both desktop and mobile viewports.
+  - Features an in-header quick jump anchor pill (`Network Contact(s) ↓`) for direct scrolling to `#network-contacts`.
   - Appears strictly when a valid company research dossier is active; absent during initial empty search state, loading state, error states, and unindexed ticker fallbacks.
   - Pure deterministic query keying using `report.ticker` (e.g. `RELIANCE`, `TCS`, `HDFCBANK`, `BHARTIARTL`, `ZOMATO`, `SWIGGY`).
   - Zero duplicate company registries: directly reuses `LOCAL_VERIFIED_SYMBOL_REGISTRY` and `getContactsForCompany(ticker, graph)`.
@@ -908,16 +910,17 @@ To ensure disciplined execution without regressions, the implementation follows 
   - Companies in symbol registry with zero network contacts (e.g. `ASIANPAINT`, `BEL`, `KOTAKBANK`): renders a compact, honest empty state explaining that no 1st or 2nd-degree contacts match through corporate tenure, sector leadership, or specialized domain expertise.
   - Unsupported/unindexed tickers (e.g. `UNKNOWN_CORP`, `CGFSDYMGUJHVGF`): returns 0 recommendations with zero fabricated relationships or hallucinated affiliations.
   - Dynamic responsiveness: changing the searched ticker immediately recalculates recommendations deterministically.
-- **Automated Test Suite (`scripts/test_research_network.mjs`)**:
-  - 166 automated unit tests passing (0 failures) across 8 test categories:
+- **Verification Methodology & Test Suite (`scripts/test_research_network.mjs`)**:
+  - **Service & Data Regression (Automated)**: 166 automated unit assertions passing (0 failures) covering service-level and data contract guarantees across 8 categories:
     1. Reliance dossier resolution & expected contacts (16 tests).
     2. TCS dossier resolution & contextual recommendations (12 tests).
     3. Dynamic ticker switching & recommendation differentiation (9 tests).
     4. Strict non-inference for unsupported / unknown tickers (7 tests).
     5. Empty recommendation results & edge state safety (8 tests).
     6. Distinct professional relevance and relationship accessibility (96 tests).
-    7. Profile selection & detail integrity (18 tests).
+    7. Profile selection & detail integrity data contracts (18 tests).
     8. Regression safety for existing network service and natural query workflows (10 tests).
+  - **Interactive UI Verification**: Because the minimal test environment does not include DOM mocking (JSDOM/@testing-library), interactive behavior (DOM mounting within dossier, modal opening, dismissal without navigation drift, and dynamic ticker updates) is verified via manual browser execution on `http://localhost:3000/?page=research`. Automated tests strictly assert service and data layer contracts.
 
 ---
 

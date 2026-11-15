@@ -125,7 +125,7 @@ export const ThresholdSettingsModal: React.FC<ThresholdSettingsModalProps> = ({
             </div>
             <div className="font-mono font-bold text-slate-100 flex items-center gap-1.5">
               <span>{activeAlertCount} Total</span>
-              <span className="text-rose-400 text-[11px]">(High Priority: {highPriorityCount})</span>
+              <span className="text-rose-400 text-[11px]">({highPriorityCount} High)</span>
             </div>
           </div>
         </div>
@@ -151,5 +151,3 @@ export const ThresholdSettingsModal: React.FC<ThresholdSettingsModalProps> = ({
     </div>
   );
 };
-
-export default ThresholdSettingsModal;
